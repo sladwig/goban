@@ -36,6 +36,7 @@ type Board
     = Board
         { dict : Dict Coordinate Player
         , size : Int
+        , moves: List((Coordinate, Player))
         }
 
 
@@ -48,7 +49,7 @@ type alias Group =
 
 square : Int -> Board
 square size =
-    Board { dict = Dict.empty, size = size }
+    Board { dict = Dict.empty, size = size, moves = [] }
 
 
 sizeOf : Board -> Int
