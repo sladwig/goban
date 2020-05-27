@@ -3,6 +3,9 @@ module Coordinate
         ( Coordinate
         , isWithinSquare
         , fromXandY
+        , x
+        , y
+        , toString
         )
 
 
@@ -10,18 +13,26 @@ type alias Coordinate =
     ( Int, Int )
 
 
-{-| Make a Coordinate from an "x" and "y" value
--}
 fromXandY : Int -> Int -> Coordinate
-fromXandY x y=
-    (x,y)
+fromXandY xx yy=
+    (xx,yy)
 
 
 isWithinSquare : Int -> Coordinate -> Bool
-isWithinSquare size ( x, y ) =
+isWithinSquare size ( xx, yy ) =
     List.all identity
-        [ x > 0
-        , x <= size
-        , y > 0
-        , y <= size
+        [ xx > 0
+        , xx <= size
+        , yy > 0
+        , yy <= size
         ]
+
+x : Coordinate -> Int
+x coords = Tuple.first coords
+
+y : Coordinate -> Int
+y coords = Tuple.second coords
+
+toString : Coordinate -> String
+toString coords =
+    "(" ++ String.fromInt (Tuple.first coords) ++ "|" ++ String.fromInt (Tuple.second coords) ++ ")"

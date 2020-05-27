@@ -5,6 +5,7 @@ module Player
         , black
         , white
         , toChar
+        , toString
         )
 
 
@@ -41,3 +42,12 @@ toChar player =
 
         Black ->
             'B'
+
+toString : Player -> String
+toString player =
+    case player of
+        Black ->
+            "black"
+
+        White ->
+            "white"

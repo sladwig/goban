@@ -91,10 +91,10 @@ validateLiberties board coordinate player =
     in
         case groupAt coordinate inserted of
             Nothing ->
-                Result.Err <| Unspecified ((Debug.toString coordinate) ++ "not in a group")
+                Result.Err <| Unspecified (Coordinate.toString coordinate ++ "not in a group")
 
             Just group_ ->
-                if Set.size (group_.liberties) == 0 then
+                if Set.size group_.liberties == 0 then
                     Result.Err Suicide
                 else
                     Result.Ok ()
@@ -190,10 +190,10 @@ toString (Board { size, dict }) =
                                 Player.toChar player
                     )
                 |> String.fromList
-                |> (flip (++) "\n")
+                |> flip (++) "\n"
 
         rows : String
         rows =
             List.foldr ((++) << row) "" range
     in
-        (String.fromInt size) ++ "\n" ++ rows
+        String.fromInt size ++ "\n" ++ rows
