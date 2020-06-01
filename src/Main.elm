@@ -6,8 +6,8 @@ import Html.Events exposing (onClick)
 import Board exposing (Board)
 import Player exposing (Player)
 import Coordinate exposing (Coordinate)
-import Debug 
-import Platform.Cmd 
+import Debug
+import Platform.Cmd
 import Flip exposing (flip)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
@@ -28,7 +28,7 @@ main =
 
 
 type alias Model =
-    {   
+    {
         -- board : Board
  turn : Player
     , moves: List (Coordinate, Player)
@@ -67,11 +67,12 @@ view model =
                     ]
     in
         Html.div []
-            [ 
-          
-              
-             
-             svg [ version "1.1", x "0", y "0", scale "1", viewBox "0 0 323 323", enableBackground "green" ] [
+            [
+                        Html.button [ onClick Pass ] [ Html.text "pass" ]
+                , Html.button [ onClick Undo ] [ Html.text "undo" ]
+
+
+             ,svg [ version "1.1", x "0", y "0", scale "1", viewBox "0 0 323 323", enableBackground "green" ] [
                 --  rect [ x "5", y "5", fill "beige",  width (str (21 * fieldSize)), height (str (21 * fieldSize))] []
                  svgRows
                 , svgCols
@@ -88,39 +89,38 @@ view model =
                 , clickAreas
              ],
                        stateShow model
-              , Html.button [ onClick Pass ] [ Html.text "pass" ]  
-                , Html.button [ onClick Undo ] [ Html.text "undo" ]
-          
-             
-             
-             
+
+
+
+
+
         --      ++ (List.map (viewRow model.board size)
         --                 (List.range 1 size)
-        -- ) 
-    
+        -- )
+
         -- (List.map (viewRow model.board size)
         --                 (List.range 1 size)
-        -- ) 
-             
+        -- )
+
                 -- ++ messages
-              ]  
+              ]
 
 stateShow : Model -> Html Msg
 stateShow model = Html.div [] ([
-    case model.turn of 
+    case model.turn of
         Player.White -> Html.text "white"
-        Player.Black -> Html.text "black"  
+        Player.Black -> Html.text "black"
     ] ++ (List.map moved model.moves))
 
 moved : (Coordinate, Player) -> Html Msg
-moved (xy, player) = 
+moved (xy, player) =
     let
         (x, y) = (Tuple.mapBoth toText toText xy)
     in
     Html.span [] [
-        case player of 
+        case player of
         Player.White -> Html.text "white ("
-        Player.Black -> Html.text "black (" 
+        Player.Black -> Html.text "black ("
     , x, Html.text " | ", y, Html.text ") --- " ]
 
 -- ]
@@ -128,51 +128,51 @@ toText : Int -> Html Msg
 toText n = Html.text (String.fromInt n)
 
 yunziis : List (Coordinate, Player) -> Svg Msg
-yunziis moves = 
+yunziis moves =
     g [] (List.map yunzi moves)
 
 yunzi : (Coordinate, Player) -> Svg Msg
-yunzi (xy, player) = 
-    let 
-        color = (case player of 
+yunzi (xy, player) =
+    let
+        color = (case player of
                     Player.Black -> "black"
-                    Player.White -> "white") 
+                    Player.White -> "white")
     in
     circle [ r "5", cx (str (fieldSize * (Tuple.first xy))), cy (str (fieldSize * (Tuple.second xy))), fill color, onClick (Click xy)] []
 
 clickAreas : Svg Msg
-clickAreas = 
+clickAreas =
      g [](List.map hoplas (List.range 1 19))
 
 hoplas : Int->Svg Msg
-hoplas row = 
+hoplas row =
     g [] (List.map clicky (List.map (Tuple.pair row) (List.range 1 19)))
 
 
 clicky xy = circle [ r "5", opacity "0.5", cx (str (fieldSize * (Tuple.first xy))), cy (str (fieldSize * (Tuple.second xy))), fill "transparent", onClick (Click xy)] []
 
 svgRows : Svg Msg
-svgRows = 
+svgRows =
     g [](List.map rowLine (List.range 1 19))
 
 svgCols : Svg Msg
-svgCols = 
+svgCols =
     g [](List.map colLine (List.range 1 19))
-    
+
         -- rowLine index
         -- line [x (str fieldSize), y (str fieldSize)] []
-    
+
 dot: Int -> Int -> Svg Msg
-dot x y = 
+dot x y =
     circle [ r "2", cx (str (fieldSize * x)), cy (str (fieldSize * y)), fill "black"] []
 
 rowLine :  Int  -> Svg Msg
 rowLine idx =
-    line [x1 (str (fieldSize*idx)), x2 (str (fieldSize*idx)), y1  (str fieldSize), y2 (str (fieldSize*19)), strokeWidth "1", stroke "black"] [] 
+    line [x1 (str (fieldSize*idx)), x2 (str (fieldSize*idx)), y1  (str fieldSize), y2 (str (fieldSize*19)), strokeWidth "1", stroke "black"] []
 
 colLine :  Int  -> Svg Msg
 colLine idx =
-    line [y1 (str (fieldSize*idx)), y2 (str (fieldSize*idx)), x1  (str fieldSize), x2 (str (fieldSize*19)), strokeWidth "1", stroke "black"] [] 
+    line [y1 (str (fieldSize*idx)), y2 (str (fieldSize*idx)), x1  (str fieldSize), x2 (str (fieldSize*19)), strokeWidth "1", stroke "black"] []
 
 -- svgLineRow : Board -> Int -> Int -> Html Msg
 -- svgLineRow board xSize y =
