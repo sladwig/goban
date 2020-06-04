@@ -1,17 +1,30 @@
 module Main exposing (main)
 
+-- import Element.html as ElHtml
+-- import Json.Decode as Decode
+
+import Basics
 import Board exposing (Board)
 import Browser
+import Browser.Dom as Bdom exposing (Viewport)
+import Browser.Events as BrowserE
 import Coordinate exposing (Coordinate)
 import Debug
+import Element exposing (Element)
+import Element.Background as Background
+import Element.Border as Border
+import Element.Font as Font
 import Html exposing (Html)
-import Html.Events exposing (onClick)
-import List.Extra exposing (init)
+import Html.Attributes as HtmlA
+import Html.Events as HtmlE
+import List.Extra as ListExtra
 import Move exposing (Move)
 import Platform.Cmd
 import Player exposing (Player)
-import Svg exposing (..)
-import Svg.Attributes exposing (..)
+import Svg exposing (Svg)
+import Svg.Attributes as SvgA
+import Svg.Events as SvgE
+import Task
 
 
 main : Program () Model Msg
@@ -29,11 +42,9 @@ main =
 
 
 type alias Model =
-    { -- board : Board
-      turn : Player
+    { turn : Player
     , moves : List Move
-
-    -- , message : Maybe String
+    , table : Maybe Viewport
     }
 
 
@@ -41,8 +52,11 @@ init : string -> ( Model, Platform.Cmd.Cmd Msg )
 init _ =
     ( { turn = Player.black
       , moves = []
+      , table = Nothing
       }
-    , Cmd.none
+    , Cmd.batch
+        [ Task.attempt GotTable (Bdom.getViewportOf "table")
+        ]
     )
 
 
@@ -55,48 +69,132 @@ fieldSize =
     10
 
 
+fieldStart : Int
+fieldStart =
+    fieldSize
+
+
 str : Int -> String
 str =
     String.fromInt
 
 
+strf : Float -> String
+strf =
+    String.fromFloat
+
+
 view : Model -> Html Msg
 view model =
-    Html.div []
-        [ Html.button [ onClick Pass ] [ Html.text "pass" ]
-        , Html.button [ onClick Undo ] [ Html.text "undo" ]
-        , svg [ version "1.1", x "0", y "0", scale "1", viewBox "0 0 323 323", enableBackground "green" ]
-            [ svgRows
-            , svgCols
-            , dot 4 4
-            , dot 4 10
-            , dot 4 16
-            , dot 10 4
-            , dot 10 10
-            , dot 10 16
-            , dot 16 4
-            , dot 16 10
-            , dot 16 16
-            , yunziis model.moves
-            , clickAreas
+    Element.layout
+        [ Element.width Element.fill
+        , Element.height Element.fill
+        ]
+        (boardSideBoard model)
+
+
+boardSideBoard : Model -> Element Msg
+boardSideBoard model =
+    Element.row
+        [ Element.width Element.fill
+        , Element.height Element.fill
+        , Element.centerX
+        , Element.centerY
+        , Element.spacing 30
+        ]
+        [ Element.el
+            [ Element.width (Element.fillPortion 3)
+            , Element.height Element.fill
+            , Element.centerX
+            , Element.htmlAttribute (HtmlA.id "table")
             ]
-        , stateShow model
+            (board model)
+        , Element.el
+            [ Element.width (Element.fillPortion 1)
+            ]
+            (sideBoard model)
         ]
 
 
-stateShow : Model -> Html Msg
-stateShow model =
-    Html.div [] (List.map Html.text (Player.toString model.turn :: List.map Move.toString model.moves))
+board : Model -> Element Msg
+board model =
+    let
+        theSize =
+            str (20 * fieldSize)
+
+        svgSize =
+            case model.table of
+                Nothing ->
+                    0
+
+                Just table ->
+                    Basics.min table.viewport.height table.viewport.width
+    in
+    Element.el
+        [ Element.width (Element.fillPortion 3)
+        ]
+        (Element.el
+            [ Element.width (Element.px (Basics.ceiling svgSize))
+            , Element.centerX
+            , Element.centerY
+            ]
+            (Element.html
+                (Svg.svg
+                    [ SvgA.version "1.1"
+                    , SvgA.height (strf svgSize)
+                    , SvgA.width (strf svgSize)
+                    , SvgA.viewBox ("0 0 " ++ theSize ++ " " ++ theSize)
+                    ]
+                    [ svgRows
+                    , svgCols
+                    , dot 4 4
+                    , dot 4 10
+                    , dot 4 16
+                    , dot 10 4
+                    , dot 10 10
+                    , dot 10 16
+                    , dot 16 4
+                    , dot 16 10
+                    , dot 16 16
+                    , yunziis model.moves
+                    , clickAreas
+                    ]
+                )
+            )
+        )
+
+
+sideBoard : Model -> Element Msg
+sideBoard model =
+    Element.el
+        [ Element.width (Element.fillPortion 3) ]
+        (Element.column []
+            (Element.el [] buttons
+                :: List.map
+                    Element.text
+                    (Player.toString model.turn :: List.map Move.toString model.moves)
+            )
+        )
+
+
+buttons : Element Msg
+buttons =
+    Element.row []
+        [ Element.html (Html.button [ HtmlE.onClick Pass ] [ Html.text "pass" ])
+        , Element.html (Html.button [ HtmlE.onClick Undo ] [ Html.text "undo" ])
+        ]
 
 
 yunziis : List Move -> Svg Msg
 yunziis moves =
-    g [] (List.map yunzi moves)
+    Svg.g [] (List.map yunzi moves)
 
 
-onCoordinate : Coordinate -> List (Attribute Msg)
+onCoordinate : Coordinate -> List (Svg.Attribute Msg)
 onCoordinate pos =
-    [ cx (str (fieldSize * Coordinate.x pos)), cy (str (fieldSize * Coordinate.y pos)) ]
+    [ SvgA.cx (str (fieldSize * Coordinate.x pos))
+    , SvgA.cy (str (fieldSize * Coordinate.y pos))
+    ]
 
 
 yunzi : Move -> Svg Msg
@@ -108,65 +206,86 @@ yunzi move =
         xy =
             Move.position move
     in
-    circle (List.append (onCoordinate xy) [ r "5", fill color, onClick (Click xy) ]) []
+    Svg.circle
+        (List.append (onCoordinate xy)
+            [ SvgA.r "5"
+            , SvgA.fill color
+            , SvgE.onClick (Click xy)
+            ]
+        )
+        []
 
 
 clickAreas : Svg Msg
 clickAreas =
-    g [] (List.map hoplas (List.range 1 19))
+    Svg.g [] (List.map hoplas (List.range 1 19))
 
 
 hoplas : Int -> Svg Msg
 hoplas row =
-    g [] (List.map clicky (List.map (Tuple.pair row) (List.range 1 19)))
+    Svg.g [] (List.map clicky (List.map (Tuple.pair row) (List.range 1 19)))
 
 
 clicky : Coordinate -> Svg Msg
 clicky xy =
-    circle (List.append (onCoordinate xy) [ r "5", opacity "0.5", fill "transparent", onClick (Click xy) ]) []
+    Svg.circle
+        (List.append (onCoordinate xy)
+            [ SvgA.r "5"
+            , SvgA.opacity "0.5"
+            , SvgA.fill "transparent"
+            , SvgE.onClick (Click xy)
+            ]
+        )
+        []
 
 
 svgRows : Svg Msg
 svgRows =
-    g [] (List.map rowLine (List.range 1 19))
+    Svg.g [] (List.map rowLine (List.range 1 19))
 
 
 svgCols : Svg Msg
 svgCols =
-    g [] (List.map colLine (List.range 1 19))
+    Svg.g [] (List.map colLine (List.range 1 19))
 
 
 dot : Int -> Int -> Svg Msg
 dot x y =
-    circle [ r "2", cx (str (fieldSize * x)), cy (str (fieldSize * y)), fill "black" ] []
+    Svg.circle
+        [ SvgA.r "2"
+        , SvgA.cx (str (fieldSize * x))
+        , SvgA.cy (str (fieldSize * y))
+        , SvgA.fill "black"
+        ]
+        []
 
 
-rowAt : Int -> List (Attribute Msg)
+rowAt : Int -> List (Svg.Attribute Msg)
 rowAt x =
-    [ x1 (str (fieldSize * x))
-    , x2 (str (fieldSize * x))
-    , y1 (str fieldSize)
-    , y2 (str (fieldSize * 19))
+    [ SvgA.y1 (str (fieldSize * x))
+    , SvgA.y2 (str (fieldSize * x))
+    , SvgA.x1 (str fieldStart)
+    , SvgA.x2 (str (fieldSize * 19))
     ]
 
 
 rowLine : Int -> Svg Msg
 rowLine idx =
-    line (List.append (rowAt idx) [ strokeWidth "1", stroke "black" ]) []
+    Svg.line (List.append (rowAt idx) [ SvgA.strokeWidth "1", SvgA.stroke "black" ]) []
 
 
-colAt : Int -> List (Attribute Msg)
+colAt : Int -> List (Svg.Attribute Msg)
 colAt x =
-    [ y1 (str (fieldSize * x))
-    , y2 (str (fieldSize * x))
-    , x1 (str fieldSize)
-    , x2 (str (fieldSize * 19))
+    [ SvgA.x1 (str (fieldSize * x))
+    , SvgA.x2 (str (fieldSize * x))
+    , SvgA.y1 (str fieldStart)
+    , SvgA.y2 (str (fieldSize * 19))
     ]
 
 
 colLine : Int -> Svg Msg
 colLine idx =
-    line (List.append (colAt idx) [ strokeWidth "1", stroke "black" ]) []
+    Svg.line (List.append (colAt idx) [ SvgA.strokeWidth "1", SvgA.stroke "black" ]) []
 
 
 
@@ -177,6 +296,8 @@ type Msg
     = Click Coordinate
     | Pass
     | Undo
+    | GotTable (Result Bdom.Error Viewport)
+    | Resize
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -194,7 +315,18 @@ update msg model =
             ( { model | turn = Player.next model.turn }, Cmd.none )
 
         Undo ->
-            ( { model | turn = Player.next model.turn, moves = Maybe.withDefault model.moves (List.Extra.init model.moves) }, Cmd.none )
+            ( { model
+                | turn = Player.next model.turn
+                , moves = Maybe.withDefault model.moves (ListExtra.init model.moves)
+              }
+            , Cmd.none
+            )
+
+        GotTable vp ->
+            ( { model | table = Result.toMaybe vp }, Cmd.none )
+
+        Resize ->
+            ( model, Task.attempt GotTable (Bdom.getViewportOf "table") )
 
 
 
@@ -202,5 +334,5 @@ update msg model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions =
-    always Sub.none
+subscriptions _ =
+    BrowserE.onResize (\_ _ -> Resize)
