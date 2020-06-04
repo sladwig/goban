@@ -1,12 +1,11 @@
-module Coordinate
-    exposing
-        ( Coordinate
-        , isWithinSquare
-        , fromXandY
-        , x
-        , y
-        , toString
-        )
+module Coordinate exposing
+    ( Coordinate
+    , fromXandY
+    , isWithinSquare
+    , toString
+    , x
+    , y
+    )
 
 
 type alias Coordinate =
@@ -14,8 +13,8 @@ type alias Coordinate =
 
 
 fromXandY : Int -> Int -> Coordinate
-fromXandY xx yy=
-    (xx,yy)
+fromXandY xx yy =
+    ( xx, yy )
 
 
 isWithinSquare : Int -> Coordinate -> Bool
@@ -27,11 +26,16 @@ isWithinSquare size ( xx, yy ) =
         , yy <= size
         ]
 
+
 x : Coordinate -> Int
-x coords = Tuple.first coords
+x coords =
+    Tuple.first coords
+
 
 y : Coordinate -> Int
-y coords = Tuple.second coords
+y coords =
+    Tuple.second coords
+
 
 toString : Coordinate -> String
 toString coords =

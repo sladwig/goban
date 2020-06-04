@@ -1,8 +1,8 @@
 module Parser exposing (parse)
 
-import Regex exposing (HowMany(..))
 import Board exposing (Board, set)
-import Player exposing (white, black)
+import Player exposing (black, white)
+import Regex exposing (HowMany(..))
 
 
 type alias ParseError =
@@ -21,7 +21,7 @@ parse input =
         boardResult size =
             parseBoard (String.dropLeft (String.length <| toString size) input) size
     in
-        sizeResult |> Result.andThen boardResult
+    sizeResult |> Result.andThen boardResult
 
 
 parseBoard : String -> Int -> Result ParseError Board
@@ -35,8 +35,9 @@ parseRec size seen input board =
         Nothing ->
             if seen == size ^ 2 then
                 Result.Ok board
+
             else
-                Result.Err <| "Saw " ++ (toString seen) ++ " on a " ++ (toString size) ++ " board"
+                Result.Err <| "Saw " ++ toString seen ++ " on a " ++ toString size ++ " board"
 
         Just ( c, rest ) ->
             let
@@ -44,18 +45,18 @@ parseRec size seen input board =
                     Board.set ( (seen % size) + 1, (seen // size) + 1 ) player board
                         |> parseRec size (seen + 1) rest
             in
-                case c of
-                    '\n' ->
-                        parseRec size seen rest board
+            case c of
+                '\n' ->
+                    parseRec size seen rest board
 
-                    '-' ->
-                        parseRec size (seen + 1) rest board
+                '-' ->
+                    parseRec size (seen + 1) rest board
 
-                    'W' ->
-                        nextBoard white
+                'W' ->
+                    nextBoard white
 
-                    'B' ->
-                        nextBoard black
+                'B' ->
+                    nextBoard black
 
-                    _ ->
-                        Result.Err <| "Invalid char: " ++ (String.fromChar c)
+                _ ->
+                    Result.Err <| "Invalid char: " ++ String.fromChar c

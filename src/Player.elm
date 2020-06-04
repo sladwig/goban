@@ -1,12 +1,11 @@
-module Player
-    exposing
-        ( Player(..)
-        , next
-        , black
-        , white
-        , toChar
-        , toString
-        )
+module Player exposing
+    ( Player(..)
+    , black
+    , next
+    , toChar
+    , toString
+    , white
+    )
 
 
 type Player
@@ -42,6 +41,7 @@ toChar player =
 
         Black ->
             'B'
+
 
 toString : Player -> String
 toString player =

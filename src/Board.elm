@@ -1,24 +1,23 @@
-module Board
-    exposing
-        ( Board
-        , InsertionResult
-        , InsertionFailure(..)
-        , insert
-        , get
-        , set
-        , sizeOf
-        , square
-        , toString
-        )
+module Board exposing
+    ( Board
+    , InsertionFailure(..)
+    , InsertionResult
+    , get
+    , insert
+    , set
+    , sizeOf
+    , square
+    , toString
+    )
 
-import Result exposing (andThen)
-import Dict exposing (Dict)
-import Set exposing (Set)
-import Player exposing (Player)
 import Coordinate exposing (Coordinate)
+import Debug
+import Dict exposing (Dict)
 import Flip exposing (flip)
+import Player exposing (Player)
+import Result exposing (andThen)
+import Set exposing (Set)
 
-import Debug 
 
 type alias InsertionResult =
     Result InsertionFailure Board
@@ -36,7 +35,7 @@ type Board
     = Board
         { dict : Dict Coordinate Player
         , size : Int
-        , moves: List((Coordinate, Player))
+        , moves : List ( Coordinate, Player )
         }
 
 
@@ -69,6 +68,7 @@ validateCoordinate : Coordinate -> Board -> Result InsertionFailure ()
 validateCoordinate coordinate board =
     if isInBounds board coordinate then
         Result.Ok ()
+
     else
         Result.Err OutOfBounds
 
@@ -89,17 +89,21 @@ validateLiberties board coordinate player =
         inserted =
             set coordinate player board
     in
-        case groupAt coordinate inserted of
-            Nothing ->
-                Result.Err <| Unspecified (Coordinate.toString coordinate ++ "not in a group")
+    case groupAt coordinate inserted of
+        Nothing ->
+            Result.Err <| Unspecified (Coordinate.toString coordinate ++ "not in a group")
 
-            Just group_ ->
-                if Set.size group_.liberties == 0 then
-                    Result.Err Suicide
-                else
-                    Result.Ok ()
+        Just group_ ->
+            if Set.size group_.liberties == 0 then
+                Result.Err Suicide
+
+            else
+                Result.Ok ()
+
+
 
 -- map2 (,) (index 0 string) (index 1 string)
+
 
 get : Coordinate -> Board -> Maybe Player
 get coordinate (Board { dict }) =
@@ -155,16 +159,18 @@ groupRec ( x, y ) board group =
                             { g
                                 | coordinates = Set.insert coordinate g.coordinates
                             }
+
                     else
                         -- edge of group
                         g
     in
-        List.foldl checker group toCheck
+    List.foldl checker group toCheck
 
 
 isInBounds : Board -> Coordinate -> Bool
 isInBounds (Board { size }) coordinate =
     Coordinate.isWithinSquare size coordinate
+
 
 
 -- toString_ =
@@ -196,4 +202,4 @@ toString (Board { size, dict }) =
         rows =
             List.foldr ((++) << row) "" range
     in
-        String.fromInt size ++ "\n" ++ rows
+    String.fromInt size ++ "\n" ++ rows
