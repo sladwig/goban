@@ -14,7 +14,6 @@ import Svg exposing (..)
 import Svg.Attributes exposing (..)
 
 
-
 main : Program () Model Msg
 main =
     Browser.element
@@ -64,7 +63,9 @@ str =
 view : Model -> Html Msg
 view model =
     Html.div []
-        [ svg [ version "1.1", x "0", y "0", scale "1", viewBox "0 0 323 323", enableBackground "green" ]
+        [ Html.button [ onClick Pass ] [ Html.text "pass" ]
+        , Html.button [ onClick Undo ] [ Html.text "undo" ]
+        , svg [ version "1.1", x "0", y "0", scale "1", viewBox "0 0 323 323", enableBackground "green" ]
             [ svgRows
             , svgCols
             , dot 4 4
@@ -80,8 +81,6 @@ view model =
             , clickAreas
             ]
         , stateShow model
-        , Html.button [ onClick Pass ] [ Html.text "pass" ]
-        , Html.button [ onClick Undo ] [ Html.text "undo" ]
         ]
 
 
