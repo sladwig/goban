@@ -2,18 +2,19 @@ module Main exposing (main)
 
 -- import Element.html as ElHtml
 -- import Json.Decode as Decode
+-- import Element.Nothing as Nothing
 
 import Basics
 import Board exposing (Board)
 import Browser
 import Browser.Dom as Bdom exposing (Viewport)
 import Browser.Events as BrowserE
-import Coordinate exposing (Coordinate)
 import Debug
 import Element exposing (Element)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
+import Element.Input as Input
 import Html exposing (Html)
 import Html.Attributes as HtmlA
 import Html.Events as HtmlE
@@ -21,6 +22,7 @@ import List.Extra as ListExtra
 import Move exposing (Move)
 import Platform.Cmd
 import Player exposing (Player)
+import Position exposing (Position)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgA
 import Svg.Events as SvgE
@@ -45,6 +47,8 @@ type alias Model =
     { turn : Player
     , moves : List Move
     , table : Maybe Viewport
+    , board : Board
+    , message : Maybe String
     }
 
 
@@ -53,6 +57,8 @@ init _ =
     ( { turn = Player.black
       , moves = []
       , table = Nothing
+      , board = Board.square 19
+      , message = Nothing
       }
     , Cmd.batch
         [ Task.attempt GotTable (Bdom.getViewportOf "table")
@@ -105,10 +111,12 @@ boardSideBoard model =
         [ Element.el
             [ Element.width (Element.fillPortion 3)
             , Element.height Element.fill
+
+            -- , Background.color (Element.rgb255 240 0 245)
             , Element.centerX
             , Element.htmlAttribute (HtmlA.id "table")
             ]
-            (board model)
+            (prettyBoard model)
         , Element.el
             [ Element.width (Element.fillPortion 1)
             ]
@@ -116,8 +124,8 @@ boardSideBoard model =
         ]
 
 
-board : Model -> Element Msg
-board model =
+prettyBoard : Model -> Element Msg
+prettyBoard model =
     let
         theSize =
             str (20 * fieldSize)
@@ -132,6 +140,7 @@ board model =
     in
     Element.el
         [ Element.width (Element.fillPortion 3)
+        , Element.height Element.fill
         ]
         (Element.el
             [ Element.width (Element.px (Basics.ceiling svgSize))
@@ -156,7 +165,7 @@ board model =
                     , dot 16 4
                     , dot 16 10
                     , dot 16 16
-                    , yunziis model.moves
+                    , yunziis (Board.movesOf model.board)
                     , clickAreas
                     ]
                 )
@@ -168,13 +177,31 @@ sideBoard : Model -> Element Msg
 sideBoard model =
     Element.el
         [ Element.width (Element.fillPortion 3) ]
-        (Element.column []
-            (Element.el [] buttons
-                :: List.map
-                    Element.text
-                    (Player.toString model.turn :: List.map Move.toString model.moves)
-            )
+        (Element.column [ Element.scrollbars ]
+            [ --message model.message
+              Element.el [] buttons
+            , Element.text (Player.toString model.turn)
+            , Input.multiline
+                [ Element.height (Element.px 400)
+                ]
+                { label = Input.labelHidden "jo"
+                , onChange = \_ -> Undo
+                , placeholder = Just (Input.placeholder [] (Element.text ""))
+                , spellcheck = False
+                , text = String.join "\n" (List.map Move.toString model.moves)
+                }
+            ]
         )
+
+
+message : Maybe String -> Element Msg
+message msg =
+    case msg of
+        Nothing ->
+            Element.none
+
+        Just reason ->
+            Element.text reason
 
 
 buttons : Element Msg
@@ -190,10 +217,10 @@ yunziis moves =
     Svg.g [] (List.map yunzi moves)
 
 
-onCoordinate : Coordinate -> List (Svg.Attribute Msg)
-onCoordinate pos =
-    [ SvgA.cx (str (fieldSize * Coordinate.x pos))
-    , SvgA.cy (str (fieldSize * Coordinate.y pos))
+onPosition : Position -> List (Svg.Attribute Msg)
+onPosition pos =
+    [ SvgA.cx (str (fieldSize * Position.x pos))
+    , SvgA.cy (str (fieldSize * Position.y pos))
     ]
 
 
@@ -207,7 +234,7 @@ yunzi move =
             Move.position move
     in
     Svg.circle
-        (List.append (onCoordinate xy)
+        (List.append (onPosition xy)
             [ SvgA.r "5"
             , SvgA.fill color
             , SvgE.onClick (Click xy)
@@ -226,10 +253,10 @@ hoplas row =
     Svg.g [] (List.map clicky (List.map (Tuple.pair row) (List.range 1 19)))
 
 
-clicky : Coordinate -> Svg Msg
+clicky : Position -> Svg Msg
 clicky xy =
     Svg.circle
-        (List.append (onCoordinate xy)
+        (List.append (onPosition xy)
             [ SvgA.r "5"
             , SvgA.opacity "0.5"
             , SvgA.fill "transparent"
@@ -293,7 +320,7 @@ colLine idx =
 
 
 type Msg
-    = Click Coordinate
+    = Click Position
     | Pass
     | Undo
     | GotTable (Result Bdom.Error Viewport)
@@ -304,12 +331,27 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Click coordinate ->
-            ( { model
-                | turn = Player.next model.turn
-                , moves = Move.fromPlayerAndCoordinate model.turn coordinate :: model.moves
-              }
-            , Cmd.none
-            )
+            let
+                move =
+                    Debug.log "move" (Move.fromPlayerAndPosition model.turn coordinate)
+            in
+            case Board.play move model.board of
+                Ok board ->
+                    ( { model
+                        | board = Debug.log "bostf iyy id" board
+                        , turn = Player.next model.turn
+                        , moves = move :: model.moves
+                        , message = Nothing
+                      }
+                    , Cmd.none
+                    )
+
+                Err reason ->
+                    ( { model
+                        | message = Just (Board.insertionFailureToString reason)
+                      }
+                    , Cmd.none
+                    )
 
         Pass ->
             ( { model | turn = Player.next model.turn }, Cmd.none )

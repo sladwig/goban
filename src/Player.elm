@@ -3,6 +3,7 @@ module Player exposing
     , black
     , next
     , toChar
+    , toInt
     , toString
     , white
     )
@@ -51,3 +52,19 @@ toString player =
 
         White ->
             "white"
+
+
+toInt : Player -> Int
+toInt player =
+    case player of
+        Black ->
+            0
+
+        White ->
+            1
+
+
+
+-- isNext: Player -> Bool
+-- isNext other =
+--     if other == (next
