@@ -15,6 +15,7 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
+import Flip exposing (flip)
 import Html exposing (Html)
 import Html.Attributes as HtmlA
 import Html.Events as HtmlE
@@ -357,9 +358,14 @@ update msg model =
             ( { model | turn = Player.next model.turn }, Cmd.none )
 
         Undo ->
+            let
+                oneLessMove =
+                    Maybe.withDefault model.moves (List.tail model.moves)
+            in
             ( { model
                 | turn = Player.next model.turn
-                , moves = Maybe.withDefault model.moves (ListExtra.init model.moves)
+                , moves = oneLessMove
+                , board = List.foldl Board.applyPlay (Board.square 19) oneLessMove
               }
             , Cmd.none
             )

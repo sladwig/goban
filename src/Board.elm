@@ -2,6 +2,7 @@ module Board exposing
     ( Board
     , InsertionFailure(..)
     , InsertionResult
+    , applyPlay
     , capture
     , fromSizeStonesCaptures
     , get
@@ -114,6 +115,16 @@ play move board =
         |> andThen (\_ -> capture board move)
         |> andThen (isAlive move)
         |> andThen (\iiii -> Result.Ok (Debug.log "iiii" iiii))
+
+
+applyPlay : Move -> Board -> Board
+applyPlay move board =
+    case play move board of
+        Err _ ->
+            board
+
+        Ok newBoard ->
+            newBoard
 
 
 playMove : Position -> Player -> Board -> InsertionResult
