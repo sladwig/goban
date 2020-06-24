@@ -1,9 +1,9 @@
 module MiniGoParserTests exposing (..)
 
-import Test exposing (..)
+import Board
 import Expect
 import MiniGoParser
-import Board
+import Test exposing (..)
 
 
 suite : Test
