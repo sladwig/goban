@@ -280,10 +280,10 @@ svgCols =
 dot : Int -> Int -> Svg Msg
 dot x y =
     Svg.circle
-        [ SvgA.r "2"
+        [ SvgA.r "1.5"
         , SvgA.cx (str (fieldSize * x))
         , SvgA.cy (str (fieldSize * y))
-        , SvgA.fill "black"
+        , SvgA.fill "#2d2d2d"
         ]
         []
 
@@ -299,7 +299,7 @@ rowAt x =
 
 rowLine : Int -> Svg Msg
 rowLine idx =
-    Svg.line (List.append (rowAt idx) [ SvgA.strokeWidth "1", SvgA.stroke "black" ]) []
+    Svg.line (List.append (rowAt idx) [ SvgA.strokeWidth "0.5", SvgA.stroke "#2d2d2d" ]) []
 
 
 colAt : Int -> List (Svg.Attribute Msg)
@@ -313,7 +313,7 @@ colAt x =
 
 colLine : Int -> Svg Msg
 colLine idx =
-    Svg.line (List.append (colAt idx) [ SvgA.strokeWidth "1", SvgA.stroke "black" ]) []
+    Svg.line (List.append (colAt idx) [ SvgA.strokeWidth "0.5", SvgA.stroke "#2d2d2d" ]) []
 
 
 
