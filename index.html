@@ -31,8 +31,20 @@
   </body>
 
   <script type="text/javascript">
+    var key = "goban";
+    var storedData = localStorage.getItem(key);
+    var flags = storedData ? JSON.parse(storedData) : null;
+
     var app = Elm.Main.init({
+      flags,
       node: document.getElementById("goban"),
+    });
+    app.ports.setStorage.subscribe(function (state) {
+      if (state === null) {
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, JSON.stringify(state));
+      }
     });
   </script>
 </html>

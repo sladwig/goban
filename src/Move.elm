@@ -1,5 +1,7 @@
 module Move exposing
     ( Move
+    , decoder
+    , encode
     , fromPlayerAndPosition
     , fromPositionAndPlayer
     , player
@@ -7,6 +9,8 @@ module Move exposing
     , toString
     )
 
+import Json.Decode as D
+import Json.Encode as E
 import Player exposing (Player)
 import Position exposing (Position)
 
@@ -38,3 +42,18 @@ position move =
 toString : Move -> String
 toString move =
     Player.toString (player move) ++ Position.toString (position move)
+
+
+encode : Move -> E.Value
+encode m =
+    E.object
+        [ ( "player", Player.encode (player m) )
+        , ( "position", Position.encode (position m) )
+        ]
+
+
+decoder : D.Decoder Move
+decoder =
+    D.map2 fromPlayerAndPosition
+        (D.field "player" Player.decoder)
+        (D.field "position" Position.decoder)

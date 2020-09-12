@@ -1,12 +1,18 @@
 module Player exposing
     ( Player(..)
     , black
+    , decoder
+    , encode
+    , fromChar
     , next
     , toChar
     , toInt
     , toString
     , white
     )
+
+import Json.Decode as D
+import Json.Encode as E
 
 
 type Player
@@ -44,6 +50,44 @@ toChar player =
             'B'
 
 
+fromChar : Char -> Maybe Player
+fromChar c =
+    case c of
+        'W' ->
+            Just White
+
+        'B' ->
+            Just Black
+
+        _ ->
+            Nothing
+
+
+fromString : String -> Player
+fromString c =
+    case String.toLower c of
+        "white" ->
+            White
+
+        "w" ->
+            White
+
+        "1" ->
+            White
+
+        "black" ->
+            Black
+
+        "b" ->
+            Black
+
+        "0" ->
+            Black
+
+        _ ->
+            Black
+
+
 toString : Player -> String
 toString player =
     case player of
@@ -62,6 +106,16 @@ toInt player =
 
         White ->
             1
+
+
+encode : Player -> E.Value
+encode p =
+    E.string (toString p)
+
+
+decoder : D.Decoder Player
+decoder =
+    D.map fromString D.string
 
 
 

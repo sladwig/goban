@@ -1,11 +1,11 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 -- import Element.html as ElHtml
 -- import Json.Decode as Decode
 -- import Element.Nothing as Nothing
 
 import Basics
-import Board exposing (Board)
+import Board exposing (Board, movesOf)
 import Browser
 import Browser.Dom as Bdom exposing (Viewport)
 import Browser.Events as BrowserE
@@ -19,6 +19,8 @@ import Flip exposing (flip)
 import Html exposing (Html)
 import Html.Attributes as HtmlA
 import Html.Events as HtmlE
+import Json.Decode as D
+import Json.Encode as E
 import List.Extra as ListExtra
 import Move exposing (Move)
 import Platform.Cmd
@@ -30,11 +32,11 @@ import Svg.Events as SvgE
 import Task
 
 
-main : Program () Model Msg
+main : Program E.Value Model Msg
 main =
     Browser.element
         { init = init
-        , update = update
+        , update = updateWithStorage
         , subscriptions = subscriptions
         , view = view
         }
@@ -53,18 +55,53 @@ type alias Model =
     }
 
 
-init : string -> ( Model, Platform.Cmd.Cmd Msg )
-init _ =
-    ( { turn = Player.black
-      , moves = []
-      , table = Nothing
-      , board = Board.square 19
-      , message = Nothing
-      }
+blankGame : Model
+blankGame =
+    { turn = Player.Black
+    , moves = []
+    , table = Nothing
+    , board = Board.square 19
+    , message = Nothing
+    }
+
+
+fromPlayerAndMoves : Player -> List Move -> Model
+fromPlayerAndMoves p moves =
+    { blankGame | turn = p, moves = moves, board = List.foldl Board.applyPlay (Board.square 19) moves }
+
+
+init : E.Value -> ( Model, Cmd Msg )
+init flags =
+    ( case D.decodeValue decoder flags of
+        Ok model ->
+            model
+
+        Err _ ->
+            blankGame
     , Cmd.batch
         [ Task.attempt GotTable (Bdom.getViewportOf "table")
         ]
     )
+
+
+
+-- JSON ENCODE/DECODE
+
+
+encode : Model -> E.Value
+encode model =
+    E.object
+        [ ( "turn", E.string (Player.toString model.turn) )
+        , ( "moves", E.list Move.encode model.moves )
+        ]
+
+
+decoder : D.Decoder Model
+decoder =
+    D.map2
+        fromPlayerAndMoves
+        (D.field "turn" Player.decoder)
+        (D.field "moves" (D.list Move.decoder))
 
 
 
@@ -317,6 +354,13 @@ colLine idx =
 
 
 
+-- PORTS
+
+
+port setStorage : E.Value -> Cmd msg
+
+
+
 -- UPDATE
 
 
@@ -334,12 +378,12 @@ update msg model =
         Click coordinate ->
             let
                 move =
-                    Debug.log "move" (Move.fromPlayerAndPosition model.turn coordinate)
+                    Move.fromPlayerAndPosition model.turn coordinate
             in
             case Board.play move model.board of
                 Ok board ->
                     ( { model
-                        | board = Debug.log "bostf iyy id" board
+                        | board = board
                         , turn = Player.next model.turn
                         , moves = move :: model.moves
                         , message = Nothing
@@ -375,6 +419,17 @@ update msg model =
 
         Resize ->
             ( model, Task.attempt GotTable (Bdom.getViewportOf "table") )
+
+
+updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
+updateWithStorage msg oldModel =
+    let
+        ( newModel, cmds ) =
+            update msg oldModel
+    in
+    ( newModel
+    , Cmd.batch [ setStorage (encode newModel), cmds ]
+    )
 
 
 
