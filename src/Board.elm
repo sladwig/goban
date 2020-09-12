@@ -114,7 +114,7 @@ play move board =
         |> andThen (\_ -> isFree board (Move.position move))
         |> andThen (\_ -> capture board move)
         |> andThen (isAlive move)
-        |> andThen (\iiii -> Result.Ok (Debug.log "iiii" iiii))
+        |> andThen (\iiii -> Result.Ok iiii)
 
 
 applyPlay : Move -> Board -> Board
@@ -173,15 +173,13 @@ capture board ( player, ( x, y ) ) =
             ]
 
         boardPutted =
-            Debug.log "bbboard" (put (Move.fromPositionAndPlayer ( x, y ) player) board)
+            put (Move.fromPositionAndPlayer ( x, y ) player) board
 
         groups =
-            Debug.log ("groupd" ++ Position.toString ( x, y ))
-                (neighbors
-                    |> List.filter (isInBounds (sizeOf board))
-                    -- |> List.map (\pos -> put (Move.fromPositionAndPlayer (x, y) player) board)
-                    |> List.map (\pos -> groupAt pos boardPutted)
-                )
+            neighbors
+                |> List.filter (isInBounds (sizeOf board))
+                -- |> List.map (\pos -> put (Move.fromPositionAndPlayer (x, y) player) board)
+                |> List.map (\pos -> groupAt pos boardPutted)
 
         captures =
             neighbors
@@ -190,12 +188,12 @@ capture board ( player, ( x, y ) ) =
                 |> List.map (\pos -> groupAt pos boardPutted)
                 |> List.filter
                     (\group ->
-                        case Debug.log "group" group.player of
+                        case group.player of
                             Nothing ->
                                 False
 
                             Just otherPlayer ->
-                                Debug.log "other" otherPlayer /= Debug.log "plaer :" player
+                                otherPlayer /= player
                     )
                 |> List.filter (\group -> Set.size group.liberties < 1)
 
@@ -204,20 +202,18 @@ capture board ( player, ( x, y ) ) =
         -- |> List.filter grou (Move.player move)
         -- |> List.filter (not << flip Set.member group.coordinates)
     in
-    case Debug.log "CAPTURE" captures of
+    case captures of
         [] ->
             Result.Ok boardPutted
 
         captures_ ->
             Result.Ok
-                (Debug.log "FINAL"
-                    (List.foldl
-                        (\cap board_ ->
-                            List.foldl (\pos board__ -> doCapture pos board__) board_ (Set.toList cap.positions)
-                        )
-                        boardPutted
-                        captures_
+                (List.foldl
+                    (\cap board_ ->
+                        List.foldl (\pos board__ -> doCapture pos board__) board_ (Set.toList cap.positions)
                     )
+                    boardPutted
+                    captures_
                 )
 
 
@@ -249,7 +245,7 @@ isAlive move board =
 
 get : Position -> Board -> Maybe Player
 get pos (Board { stones }) =
-    Dict.get pos (Debug.log "stpmu" stones)
+    Dict.get pos stones
 
 
 
@@ -319,7 +315,7 @@ emptyGroup =
 
 groupAt : Position -> Board -> Group
 groupAt pos board =
-    case Debug.log ("GROUPAT " ++ Position.toString pos) (get pos board) of
+    case get pos board of
         Nothing ->
             emptyGroup
 
@@ -337,22 +333,19 @@ groupRec : Position -> Board -> Group -> Group
 groupRec ( x, y ) board group =
     let
         neighbors =
-            Debug.log ("groupRecNeighbord" ++ Position.toString ( x, y ))
-                [ ( x + 1, y )
-                , ( x - 1, y )
-                , ( x, y - 1 )
-                , ( x, y + 1 )
-                ]
+            [ ( x + 1, y )
+            , ( x - 1, y )
+            , ( x, y - 1 )
+            , ( x, y + 1 )
+            ]
 
         toCheck =
-            Debug.log "groupRecToCheck"
-                (neighbors
-                    |> List.filter (isInBounds (sizeOf board))
-                    |> List.filter (not << flip Set.member group.positions)
-                )
+            neighbors
+                |> List.filter (isInBounds (sizeOf board))
+                |> List.filter (not << flip Set.member group.positions)
 
         checker position g =
-            case Debug.log ("ohhhyu" ++ Position.toString position) (get position board) of
+            case get position board of
                 Nothing ->
                     -- liberty
                     { g | liberties = Set.insert position g.liberties }

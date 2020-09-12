@@ -25,13 +25,11 @@ fromXandY xx yy =
 isWithinSquare : Int -> Position -> Bool
 isWithinSquare size ( xx, yy ) =
     List.all identity
-        (Debug.log ("isIn " ++ String.fromInt size ++ toString ( xx, yy ))
-            [ xx > 0
-            , xx <= size
-            , yy > 0
-            , yy <= size
-            ]
-        )
+        [ xx > 0
+        , xx <= size
+        , yy > 0
+        , yy <= size
+        ]
 
 
 x : Position -> Int
