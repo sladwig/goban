@@ -67,7 +67,7 @@ blankGame =
 
 fromPlayerAndMoves : Player -> List Move -> Model
 fromPlayerAndMoves p moves =
-    { blankGame | turn = p, moves = moves, board = List.foldl Board.applyPlay (Board.square 19) moves }
+    { blankGame | turn = p, moves = moves, board = List.foldr Board.applyPlay (Board.square 19) moves }
 
 
 init : E.Value -> ( Model, Cmd Msg )
