@@ -383,7 +383,7 @@ update msg model =
         TimedClick coordinate time ->
             let
                 move =
-                    Move.TimedMove model.turn coordinate time
+                    Move.Timed model.turn coordinate time
             in
             case Board.play move model.board of
                 Ok board ->

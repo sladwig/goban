@@ -96,7 +96,7 @@ sizeOf (Board { size }) =
 
 movesOf : Board -> List Move
 movesOf (Board { stones }) =
-    Dict.foldl (\pos player list -> Move.NormalMove player pos :: list) [] stones
+    Dict.foldl (\pos player list -> Move.Normal player pos :: list) [] stones
 
 
 
@@ -114,7 +114,7 @@ play move board =
         |> andThen (\_ -> isFree board (Move.position move))
         |> andThen (\_ -> capture board move)
         |> andThen (isAlive move)
-        |> andThen (\iiii -> Result.Ok iiii)
+        |> andThen Result.Ok
 
 
 applyPlay : Move -> Board -> Board
@@ -129,7 +129,7 @@ applyPlay move board =
 
 playMove : Position -> Player -> Board -> InsertionResult
 playMove pos player board =
-    play (Move.NormalMove player pos) board
+    play (Move.Normal player pos) board
 
 
 
@@ -179,7 +179,7 @@ capture board move =
             ]
 
         boardPutted =
-            put (Move.NormalMove player (Position.fromXandY x y)) board
+            put (Move.Normal player (Position.fromXandY x y)) board
 
         groups =
             neighbors

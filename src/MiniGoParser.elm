@@ -70,7 +70,7 @@ parseRec size seen input board =
         Just ( c, rest ) ->
             let
                 nextBoard player =
-                    Board.put (Move.fromPlayerAndPosition player ( modBy size seen + 1, (seen // size) + 1 )) board
+                    Board.put (Move.Normal player ( modBy size seen + 1, (seen // size) + 1 )) board
                         |> parseRec size (seen + 1) rest
             in
             case c of
