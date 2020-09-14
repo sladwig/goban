@@ -21,7 +21,7 @@ module Board exposing
 import Debug
 import Dict exposing (Dict)
 import Flip exposing (flip)
-import Move exposing (Move)
+import Move exposing (Move(..))
 import Player exposing (Player)
 import Position exposing (Position)
 import Result exposing (andThen)
@@ -96,7 +96,7 @@ sizeOf (Board { size }) =
 
 movesOf : Board -> List Move
 movesOf (Board { stones }) =
-    Dict.foldl (\pos player list -> Move.fromPlayerAndPosition player pos :: list) [] stones
+    Dict.foldl (\pos player list -> Move.NormalMove player pos :: list) [] stones
 
 
 
@@ -129,7 +129,7 @@ applyPlay move board =
 
 playMove : Position -> Player -> Board -> InsertionResult
 playMove pos player board =
-    play (Move.fromPositionAndPlayer pos player) board
+    play (Move.NormalMove player pos) board
 
 
 
@@ -157,14 +157,20 @@ isFree (Board { stones }) coordinate =
 
 
 capture : Board -> Move -> Result InsertionFailure Board
-
-
-
--- capture (Board { stones, captures })
-
-
-capture board ( player, ( x, y ) ) =
+capture board move =
     let
+        player =
+            Move.player move
+
+        position =
+            Move.position move
+
+        x =
+            Position.x position
+
+        y =
+            Position.y position
+
         neighbors =
             [ ( x - 1, y )
             , ( x, y + 1 )
@@ -173,7 +179,7 @@ capture board ( player, ( x, y ) ) =
             ]
 
         boardPutted =
-            put (Move.fromPositionAndPlayer ( x, y ) player) board
+            put (Move.NormalMove player (Position.fromXandY x y)) board
 
         groups =
             neighbors

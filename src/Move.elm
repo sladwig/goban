@@ -1,9 +1,7 @@
 module Move exposing
-    ( Move
+    ( Move(..)
     , decoder
     , encode
-    , fromPlayerAndPosition
-    , fromPositionAndPlayer
     , player
     , position
     , toString
@@ -13,47 +11,72 @@ import Json.Decode as D
 import Json.Encode as E
 import Player exposing (Player)
 import Position exposing (Position)
+import Time
 
 
-type alias Move =
-    ( Player, Position )
+type Move
+    = NormalMove Player Position
+    | TimedMove Player Position Time.Posix
 
 
-fromPlayerAndPosition : Player -> Position -> Move
-fromPlayerAndPosition p coords =
-    ( p, coords )
 
-
-fromPositionAndPlayer : Position -> Player -> Move
-fromPositionAndPlayer coords p =
-    ( p, coords )
 
 
 player : Move -> Player
 player move =
-    Tuple.first move
+    case move of
+        TimedMove p _ _ ->
+            p
+
+        NormalMove p _ ->
+            p
 
 
 position : Move -> Position
 position move =
-    Tuple.second move
+    case move of
+        TimedMove _ pos _ ->
+            pos
+
+        NormalMove _ pos ->
+            pos
 
 
 toString : Move -> String
 toString move =
-    Player.toString (player move) ++ Position.toString (position move)
+    case move of
+        TimedMove p pos t ->
+            Player.toString p ++ Position.toString pos ++ "@" ++ String.fromInt (Time.posixToMillis t)
+
+        NormalMove p pos ->
+            Player.toString p ++ Position.toString pos
 
 
 encode : Move -> E.Value
 encode m =
-    E.object
-        [ ( "player", Player.encode (player m) )
-        , ( "position", Position.encode (position m) )
-        ]
+    case m of
+        TimedMove p pos t ->
+            E.object
+                [ ( "player", Player.encode p )
+                , ( "position", Position.encode pos )
+                , ( "at", E.int (Time.posixToMillis t) )
+                ]
+
+        NormalMove p pos ->
+            E.object
+                [ ( "player", Player.encode p )
+                , ( "position", Position.encode pos )
+                ]
 
 
 decoder : D.Decoder Move
 decoder =
-    D.map2 fromPlayerAndPosition
-        (D.field "player" Player.decoder)
-        (D.field "position" Position.decoder)
+    D.oneOf
+        [ D.map3 TimedMove
+            (D.field "player" Player.decoder)
+            (D.field "position" Position.decoder)
+            (D.map Time.millisToPosix (D.field "at" D.int))
+        , D.map2 NormalMove
+            (D.field "player" Player.decoder)
+            (D.field "position" Position.decoder)
+        ]

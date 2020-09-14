@@ -30,6 +30,7 @@ import Svg exposing (Svg)
 import Svg.Attributes as SvgA
 import Svg.Events as SvgE
 import Task
+import Time
 
 
 main : Program E.Value Model Msg
@@ -366,6 +367,7 @@ port setStorage : E.Value -> Cmd msg
 
 type Msg
     = Click Position
+    | TimedClick Position Time.Posix
     | Pass
     | Undo
     | GotTable (Result Bdom.Error Viewport)
@@ -376,9 +378,12 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Click coordinate ->
+            ( model, Time.now |> Task.perform (TimedClick coordinate) )
+
+        TimedClick coordinate time ->
             let
                 move =
-                    Move.fromPlayerAndPosition model.turn coordinate
+                    Move.TimedMove model.turn coordinate time
             in
             case Board.play move model.board of
                 Ok board ->
