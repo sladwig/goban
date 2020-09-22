@@ -22,7 +22,7 @@ import Html.Events as HtmlE
 import Json.Decode as D
 import Json.Encode as E
 import List.Extra as ListExtra
-import Move exposing (Move)
+import Move exposing (Move(..))
 import Platform.Cmd
 import Player exposing (Player)
 import Position exposing (Position)
@@ -53,6 +53,7 @@ type alias Model =
     , table : Maybe Viewport
     , board : Board
     , message : Maybe String
+    , editing : Maybe Position
     }
 
 
@@ -63,6 +64,7 @@ blankGame =
     , table = Nothing
     , board = Board.square 19
     , message = Nothing
+    , editing = Nothing
     }
 
 
@@ -204,8 +206,8 @@ prettyBoard model =
                     , dot 16 4
                     , dot 16 10
                     , dot 16 16
-                    , yunziis (Board.movesOf model.board)
                     , clickAreas
+                    , yunziis (Board.movesOf model.board)
                     ]
                 )
             )
@@ -220,6 +222,7 @@ sideBoard model =
             [ --message model.message
               Element.el [] buttons
             , Element.text (Player.toString model.turn)
+            , viewEditing model.editing
             , Input.multiline
                 [ Element.height (Element.px 400)
                 ]
@@ -231,6 +234,16 @@ sideBoard model =
                 }
             ]
         )
+
+
+viewEditing : Maybe Position -> Element Msg
+viewEditing p =
+    case p of
+        Nothing ->
+            Element.text ""
+
+        Just pos ->
+            Element.text (Position.toString pos)
 
 
 message : Maybe String -> Element Msg
@@ -267,16 +280,16 @@ yunzi : Move -> Svg Msg
 yunzi move =
     let
         color =
-            Player.toString (Move.player move)
+            Player.toString (Move.playerOf move)
 
-        xy =
-            Move.position move
+        pos =
+            Move.positionOf move
     in
     Svg.circle
-        (List.append (onPosition xy)
+        (List.append (onPosition pos)
             [ SvgA.r "5"
             , SvgA.fill color
-            , SvgE.onClick (Click xy)
+            , SvgE.onClick (EditStone pos)
             ]
         )
         []
@@ -372,18 +385,64 @@ type Msg
     | Undo
     | GotTable (Result Bdom.Error Viewport)
     | Resize
+    | EditStone Position
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Click coordinate ->
-            ( model, Time.now |> Task.perform (TimedClick coordinate) )
+            case model.editing of
+                Nothing ->
+                    ( model, Time.now |> Task.perform (TimedClick coordinate) )
+
+                Just pos ->
+                    let
+                        elementIndex =
+                            Debug.log "elementIndec"
+                                (ListExtra.findIndex
+                                    (\move ->
+                                        let
+                                            movepos =
+                                                Move.positionOf move
+                                        in
+                                        Position.x movepos == Position.x pos && Position.y movepos == Position.y pos
+                                    )
+                                    model.moves
+                                )
+
+                        replacedMove : Maybe Move
+                        replacedMove =
+                            Debug.log "move"
+                                (case elementIndex of
+                                    Just i ->
+                                        ListExtra.getAt i model.moves
+
+                                    Nothing ->
+                                        Nothing
+                                )
+
+                        newMoves =
+                            Debug.log "mocvvis"
+                                (case ( elementIndex, replacedMove ) of
+                                    ( Just i, Just oldMove ) ->
+                                        case oldMove of
+                                            Move.Normal a ->
+                                                ListExtra.setAt i (Move.fromPlayerAndPosition (Move.playerOf oldMove) coordinate) model.moves
+
+                                            Move.Timed a ->
+                                                ListExtra.setAt i (Move.fromPlayerAndPositionAndTime (Move.playerOf oldMove) coordinate a.at) model.moves
+
+                                    _ ->
+                                        model.moves
+                                )
+                    in
+                    ( { model | moves = newMoves, editing = Nothing, board = List.foldr Board.applyPlay (Board.square 19) newMoves }, Cmd.none )
 
         TimedClick coordinate time ->
             let
                 move =
-                    Move.Timed model.turn coordinate time
+                    Move.fromPlayerAndPositionAndTime model.turn coordinate time
             in
             case Board.play move model.board of
                 Ok board ->
@@ -414,7 +473,7 @@ update msg model =
             ( { model
                 | turn = Player.next model.turn
                 , moves = oneLessMove
-                , board = List.foldl Board.applyPlay (Board.square 19) oneLessMove
+                , board = List.foldr Board.applyPlay (Board.square 19) oneLessMove
               }
             , Cmd.none
             )
@@ -424,6 +483,9 @@ update msg model =
 
         Resize ->
             ( model, Task.attempt GotTable (Bdom.getViewportOf "table") )
+
+        EditStone position ->
+            ( { model | editing = Just position }, Cmd.none )
 
 
 updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )

@@ -20,11 +20,6 @@ sizeParser =
 parse : String -> Result ParseError Board
 parse input =
     let
-        -- sizeResult =
-        --     Regex.find (AtMost 1) (Regex.regex "^\\d+") input
-        --         |> List.head
-        --         |> Result.fromMaybe "leading digit not found"
-        --         |> Result.andThen (String.toInt << .match)
         sizeResult =
             case Parser.run int input of
                 Err _ ->
@@ -33,9 +28,6 @@ parse input =
                 Ok value ->
                     Result.Ok value
 
-        -- |> List.head
-        -- |> Result.fromMaybe "leading digit not found"
-        -- |> Result.andThen (String.toInt << .match)
         boardResult size =
             parseBoard (String.dropLeft (String.length <| String.fromInt size) input) size
     in
@@ -70,7 +62,7 @@ parseRec size seen input board =
         Just ( c, rest ) ->
             let
                 nextBoard player =
-                    Board.put (Move.Normal player ( modBy size seen + 1, (seen // size) + 1 )) board
+                    Board.put (Move.fromPlayerAndPosition player ( modBy size seen + 1, (seen // size) + 1 )) board
                         |> parseRec size (seen + 1) rest
             in
             case c of

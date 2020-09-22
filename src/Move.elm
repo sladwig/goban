@@ -2,12 +2,15 @@ module Move exposing
     ( Move(..)
     , decoder
     , encode
-    , player
-    , position
+    , fromPlayerAndPosition
+    , fromPlayerAndPositionAndTime
+    , playerOf
+    , positionOf
     , toString
     )
 
-import Json.Decode as D
+import Json.Decode as Decode exposing (Decoder, float, int, string)
+import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import Json.Encode as E
 import Player exposing (Player)
 import Position exposing (Position)
@@ -15,65 +18,82 @@ import Time
 
 
 type Move
-    = Normal Player Position
-    | Timed Player Position Time.Posix
+    = Timed
+        { player : Player
+        , position : Position
+        , at : Time.Posix
+        }
+    | Normal
+        { player : Player
+        , position : Position
+        }
 
 
-player : Move -> Player
-player move =
+playerOf : Move -> Player
+playerOf move =
     case move of
-        Timed p _ _ ->
-            p
+        Timed { player } ->
+            player
 
-        Normal p _ ->
-            p
+        Normal { player } ->
+            player
 
 
-position : Move -> Position
-position move =
+positionOf : Move -> Position
+positionOf move =
     case move of
-        Timed _ pos _ ->
-            pos
+        Timed { position } ->
+            position
 
-        Normal _ pos ->
-            pos
+        Normal { position } ->
+            position
 
 
 toString : Move -> String
 toString move =
     case move of
-        Timed p pos t ->
-            Player.toString p ++ Position.toString pos ++ "@" ++ String.fromInt (Time.posixToMillis t)
+        Timed m ->
+            Player.toString m.player ++ Position.toString m.position ++ "@" ++ String.fromInt (Time.posixToMillis m.at)
 
-        Normal p pos ->
-            Player.toString p ++ Position.toString pos
+        Normal m ->
+            Player.toString m.player ++ Position.toString m.position
 
 
 encode : Move -> E.Value
-encode m =
-    case m of
-        Timed p pos t ->
+encode move =
+    case move of
+        Timed m ->
             E.object
-                [ ( "player", Player.encode p )
-                , ( "position", Position.encode pos )
-                , ( "at", E.int (Time.posixToMillis t) )
+                [ ( "player", Player.encode m.player )
+                , ( "position", Position.encode m.position )
+                , ( "at", E.int (Time.posixToMillis m.at) )
                 ]
 
-        Normal p pos ->
+        Normal m ->
             E.object
-                [ ( "player", Player.encode p )
-                , ( "position", Position.encode pos )
+                [ ( "player", Player.encode m.player )
+                , ( "position", Position.encode m.position )
                 ]
 
 
-decoder : D.Decoder Move
+fromPlayerAndPosition : Player -> Position -> Move
+fromPlayerAndPosition player position =
+    Normal { player = player, position = position }
+
+
+fromPlayerAndPositionAndTime : Player -> Position -> Time.Posix -> Move
+fromPlayerAndPositionAndTime player position at =
+    Timed { player = player, position = position, at = at }
+
+
+decoder : Decoder Move
 decoder =
-    D.oneOf
-        [ D.map3 Timed
-            (D.field "player" Player.decoder)
-            (D.field "position" Position.decoder)
-            (D.map Time.millisToPosix (D.field "at" D.int))
-        , D.map2 Normal
-            (D.field "player" Player.decoder)
-            (D.field "position" Position.decoder)
+    Decode.oneOf
+        [ Decode.map3 fromPlayerAndPositionAndTime
+            (Decode.field "player" Player.decoder)
+            (Decode.field "position" Position.decoder)
+            (Decode.map Time.millisToPosix (Decode.field "at" Decode.int))
+        , Decode.map2 fromPlayerAndPosition
+            (Decode.field "player" Player.decoder)
+            (Decode.field "position" Position.decoder)
         ]

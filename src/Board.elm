@@ -75,6 +75,13 @@ type Board
         }
 
 
+type alias Group =
+    { positions : Set Position
+    , player : Maybe Player
+    , liberties : Set Position
+    }
+
+
 square : Int -> Board
 square size =
     Board
@@ -96,22 +103,17 @@ sizeOf (Board { size }) =
 
 movesOf : Board -> List Move
 movesOf (Board { stones }) =
-    Dict.foldl (\pos player list -> Move.Normal player pos :: list) [] stones
+    Dict.foldl (\pos player list -> Move.fromPlayerAndPosition player pos :: list) [] stones
 
 
 
--- allowed : Move -> Board -> Bool
--- allowed move (Board board) =
---     isOnBoard (Move.position move)
---         |> andThen (\_ -> isFree (Board board) (Move.position move))
---         |> andThen (\_ -> isAlive (Board board) move)
 -- play a stone on the board following the rules (isFree, capture, isAlive, ...)
 
 
 play : Move -> Board -> InsertionResult
 play move board =
-    isPositionOnBoard (Move.position move) board
-        |> andThen (\_ -> isFree board (Move.position move))
+    isPositionOnBoard (Move.positionOf move) board
+        |> andThen (\_ -> isFree board (Move.positionOf move))
         |> andThen (\_ -> capture board move)
         |> andThen (isAlive move)
         |> andThen Result.Ok
@@ -129,12 +131,7 @@ applyPlay move board =
 
 playMove : Position -> Player -> Board -> InsertionResult
 playMove pos player board =
-    play (Move.Normal player pos) board
-
-
-
--- |> andThen (\tmpBoard -> isAlive (Board tmpBoard) move)
--- |> andThen (\tmpBoard -> put move (Board tmpBoard) |> Result.Ok)
+    play (Move.fromPlayerAndPosition player pos) board
 
 
 isPositionOnBoard : Position -> Board -> Result InsertionFailure ()
@@ -160,10 +157,10 @@ capture : Board -> Move -> Result InsertionFailure Board
 capture board move =
     let
         player =
-            Move.player move
+            Move.playerOf move
 
         position =
-            Move.position move
+            Move.positionOf move
 
         x =
             Position.x position
@@ -179,18 +176,16 @@ capture board move =
             ]
 
         boardPutted =
-            put (Move.Normal player (Position.fromXandY x y)) board
+            put (Move.fromPlayerAndPosition player (Position.fromXandY x y)) board
 
         groups =
             neighbors
                 |> List.filter (isInBounds (sizeOf board))
-                -- |> List.map (\pos -> put (Move.fromPositionAndPlayer (x, y) player) board)
                 |> List.map (\pos -> groupAt pos boardPutted)
 
         captures =
             neighbors
                 |> List.filter (isInBounds (sizeOf board))
-                -- |> List.map (\pos -> put (Move.fromPositionAndPlayer (x, y) player) board)
                 |> List.map (\pos -> groupAt pos boardPutted)
                 |> List.filter
                     (\group ->
@@ -202,11 +197,6 @@ capture board move =
                                 otherPlayer /= player
                     )
                 |> List.filter (\group -> Set.size group.liberties < 1)
-
-        -- |> Debug.log
-        --  (List.filter isInBounds)
-        -- |> List.filter grou (Move.player move)
-        -- |> List.filter (not << flip Set.member group.coordinates)
     in
     case captures of
         [] ->
@@ -223,30 +213,17 @@ capture board move =
                 )
 
 
-
--- Nothing ->
---     Result.Ok (Board { stones = stones, captures = captures })
--- Just _ ->
---     Result.Err Occupied
-
-
 isAlive : Move -> Board -> Result InsertionFailure Board
 isAlive move board =
     let
-        -- inserted =
-        --     put move board
         group =
-            groupAt (Move.position move) board
+            groupAt (Move.positionOf move) board
     in
     if Set.size group.liberties == 0 then
         Result.Err Suicide
 
     else
         Result.Ok board
-
-
-
--- map2 (,) (index 0 string) (index 1 string)
 
 
 get : Position -> Board -> Maybe Player
@@ -260,25 +237,11 @@ get pos (Board { stones }) =
 
 put : Move -> Board -> Board
 put move (Board board) =
-    Board { board | stones = Dict.insert (Move.position move) (Move.player move) board.stones }
-
-
-type alias Group =
-    { positions : Set Position
-    , player : Maybe Player
-    , liberties : Set Position
-    }
+    Board { board | stones = Dict.insert (Move.positionOf move) (Move.playerOf move) board.stones }
 
 
 
--- type alias EmptyGroup =
---     { positions : Set Position
---     , player : Maybe.Nothing
---     , liberties : Set Position
---     }
--- type Group
---     = PlayerGroup
---     | EmptyGroup
+-- adds captures for a player
 
 
 captureAdd : Position -> Player -> Captures -> Captures
@@ -307,11 +270,6 @@ doCapture position (Board board) =
                 , size = board.size
                 , captures = captureAdd position (Player.next player) board.captures
                 }
-
-
-
---     , captures = {Set.insert position (Dict.get (Player.nextPlayer gotCapturedPlayer))
--- }
 
 
 emptyGroup : Group
