@@ -1,15 +1,35 @@
 Todo
 
-- wieder lade funktion
-- zwischen speichern
-- capturen
-- ausrechnen von den gefangenen
-- punktestand errechnen
-- fortfuehrende spiele moeglich
-- commentieren
-- zeit der zuege und games
+* maybe
+    - when hovering over the move it highlights the stone
+    - no click handler for illegal stones
+    - count captures
+    - count points
+    - commentable
+    - use indexDB instead of localstorage
+    - use more compact string representation
+    - make it typesafe, that there is always black before/after white?
+    - player can switch colors
+    - edit mode
+        - be able to add moves
+
+* next
+    - passing moves
+    - add comments to games
+    - show caputres of each player
+    - add load game functionality
+    - add reset/start new functionality
+    - mark last move
 
 
+* progress
+    - use sgf for exporting/importing
 
-when hovering over the move it highlights the stone
-no click handler for illegal stones
+
+* done
+    - edit mode
+        - be able to move a stone 
+    - save gamestate to localstorage
+    - add timestamp to move
+    - reloading a capture does not really calculate the capture correctly
+    - capturen

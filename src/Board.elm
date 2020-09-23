@@ -156,7 +156,7 @@ isFree (Board { stones }) coordinate =
 capture : Board -> Move -> Result InsertionFailure Board
 capture board move =
     let
-        player =
+        p =
             Move.playerOf move
 
         position =
@@ -176,7 +176,7 @@ capture board move =
             ]
 
         boardPutted =
-            put (Move.fromPlayerAndPosition player (Position.fromXandY x y)) board
+            put (Move.fromPlayerAndPosition p (Position.fromXandY x y)) board
 
         groups =
             neighbors
@@ -188,13 +188,13 @@ capture board move =
                 |> List.filter (isInBounds (sizeOf board))
                 |> List.map (\pos -> groupAt pos boardPutted)
                 |> List.filter
-                    (\group ->
-                        case group.player of
+                    (\{ player } ->
+                        case player of
                             Nothing ->
                                 False
 
                             Just otherPlayer ->
-                                otherPlayer /= player
+                                otherPlayer /= p
                     )
                 |> List.filter (\group -> Set.size group.liberties < 1)
     in
@@ -206,7 +206,7 @@ capture board move =
             Result.Ok
                 (List.foldl
                     (\cap board_ ->
-                        List.foldl (\pos board__ -> doCapture pos board__) board_ (Set.toList cap.positions)
+                        List.foldl doCapture board_ (Set.toList cap.positions)
                     )
                     boardPutted
                     captures_
@@ -322,8 +322,6 @@ groupRec ( x, y ) board group =
                             board
                             { g
                                 | positions = Set.insert position g.positions
-
-                                -- , player = Just g.player
                             }
 
                     else

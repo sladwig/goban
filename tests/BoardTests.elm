@@ -51,7 +51,7 @@ B--
                             Expect.fail "need a valid board"
 
                         Ok board_ ->
-                            case Board.capture board_ (Move.Normal Player.Black ( 2, 1 )) of
+                            case Board.capture board_ (Move.fromPlayerAndPosition Player.Black ( 2, 1 )) of
                                 Err _ ->
                                     Expect.fail "this should succeed"
 
@@ -106,7 +106,7 @@ boardWith size blacks whites =
         fold player coordinates board =
             List.foldl
                 (\pos board_ ->
-                    Board.put (Move.Normal player pos) board_
+                    Board.put (Move.fromPlayerAndPosition player pos) board_
                  -- /                            Result.Err    Debug.log "Error" ("Problem with " ++ Position.toString coordinate ++ " " ++ Player.toString player)
                 )
                 board
@@ -138,7 +138,7 @@ insertionTest description boardString pos player expectation =
     test description <|
         \_ ->
             parse boardString
-                |> Result.map (\board -> expectation <| Board.play (Move.Normal player pos) board)
+                |> Result.map (\board -> expectation <| Board.play (Move.fromPlayerAndPosition player pos) board)
                 |> Result.withDefault (Expect.fail <| "parse error on " ++ boardString)
 
 
