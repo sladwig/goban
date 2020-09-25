@@ -4,15 +4,18 @@ module Player exposing
     , decoder
     , encode
     , fromChar
+    , fromSgf
     , next
     , toChar
     , toInt
+    , toSgf
     , toString
     , white
     )
 
 import Json.Decode as D
 import Json.Encode as E
+import Parser exposing ((|.), (|=), Parser)
 
 
 type Player
@@ -116,6 +119,24 @@ encode p =
 decoder : D.Decoder Player
 decoder =
     D.map fromString D.string
+
+
+fromSgf : Parser Player
+fromSgf =
+    Parser.oneOf
+        [ Parser.map (\_ -> Black) (Parser.keyword "B")
+        , Parser.map (\_ -> White) (Parser.keyword "W")
+        ]
+
+
+toSgf : Player -> String
+toSgf p =
+    case p of
+        Black ->
+            "B"
+
+        White ->
+            "W"
 
 
 

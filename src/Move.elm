@@ -4,14 +4,17 @@ module Move exposing
     , encode
     , fromPlayerAndPosition
     , fromPlayerAndPositionAndTime
+    , fromSgf
     , playerOf
     , positionOf
+    , toSgf
     , toString
     )
 
-import Json.Decode as Decode exposing (Decoder, float, int, string)
+import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import Json.Encode as E
+import Parser exposing ((|.), (|=), Parser)
 import Player exposing (Player)
 import Position exposing (Position)
 import Time
@@ -97,3 +100,48 @@ decoder =
             (Decode.field "player" Player.decoder)
             (Decode.field "position" Position.decoder)
         ]
+
+
+toSgf : Move -> String
+toSgf move =
+    case move of
+        Timed m ->
+            Player.toSgf (.player m) ++ "[" ++ Position.toSgf (.position m) ++ "]DT[" ++ String.fromInt (Time.posixToMillis m.at) ++ "]"
+
+        Normal m ->
+            Player.toSgf (.player m) ++ "[" ++ Position.toSgf (.position m) ++ "]"
+
+
+timefromSgf : Parser Time.Posix
+timefromSgf =
+    Parser.succeed Time.millisToPosix
+        |= Parser.int
+
+
+fromParsing : Player -> Position -> Maybe Time.Posix -> Move
+fromParsing p pos a =
+    case a of
+        Just at ->
+            fromPlayerAndPositionAndTime p pos at
+
+        Nothing ->
+            fromPlayerAndPosition p pos
+
+
+fromSgf : Parser Move
+fromSgf =
+    Parser.succeed fromParsing
+        |= Player.fromSgf
+        |. Parser.symbol "["
+        |= Position.fromSgf
+        |. Parser.symbol "]"
+        |= Parser.oneOf
+            [ Parser.succeed Nothing
+                |. Parser.end
+            , Parser.succeed Just
+                |. Parser.token "DT"
+                |. Parser.symbol "["
+                |= timefromSgf
+                |. Parser.symbol "]"
+                |. Parser.end
+            ]

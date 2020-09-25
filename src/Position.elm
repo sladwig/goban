@@ -2,15 +2,20 @@ module Position exposing
     ( Position
     , decoder
     , encode
+    , fromSgf
     , fromXandY
     , isWithinSquare
+    , toSgf
     , toString
     , x
     , y
     )
 
+import Array
 import Json.Decode as D
 import Json.Encode as E
+import List.Extra as ListExtra
+import Parser exposing ((|.), (|=), Parser)
 
 
 type alias Position =
@@ -60,3 +65,60 @@ decoder =
     D.map2 fromXandY
         (D.field "x" D.int)
         (D.field "y" D.int)
+
+
+toSgf : Position -> String
+toSgf pos =
+    toAlphabet (x pos) ++ toAlphabet (y pos)
+
+
+
+--positionParser :
+
+
+fromSgf : Parser Position
+fromSgf =
+    Parser.succeed fromXandY
+        |= sgfPositionChar
+        |= sgfPositionChar
+
+
+sgfPositionChar : Parser Int
+sgfPositionChar =
+    Parser.succeed toInt
+        |= (Parser.getChompedString <|
+                Parser.succeed ()
+                    |. Parser.chompIf Char.isLower
+           )
+
+
+abc =
+    [ "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z" ]
+
+
+toAlphabet : Int -> String
+toAlphabet i =
+    let
+        alphabet =
+            Array.fromList abc
+    in
+    case Array.get (i - 1) alphabet of
+        Just letter ->
+            letter
+
+        Nothing ->
+            ""
+
+
+toInt : String -> Int
+toInt str =
+    let
+        index =
+            ListExtra.elemIndex str abc
+    in
+    case index of
+        Just n ->
+            n + 1
+
+        Nothing ->
+            0
