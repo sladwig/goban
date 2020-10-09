@@ -136,12 +136,11 @@ fromSgf =
         |= Position.fromSgf
         |. Parser.symbol "]"
         |= Parser.oneOf
-            [ Parser.succeed Nothing
-                |. Parser.end
-            , Parser.succeed Just
+            [ Parser.succeed Just
                 |. Parser.token "DT"
                 |. Parser.symbol "["
                 |= timefromSgf
                 |. Parser.symbol "]"
                 |. Parser.end
+            , Parser.succeed Nothing
             ]
