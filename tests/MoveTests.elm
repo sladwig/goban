@@ -24,4 +24,14 @@ suite =
                     Expect.equal (Parser.run Move.fromSgf "W[fa]DT[123]")
                         (Result.Ok (Move.fromPlayerAndPositionAndTime Player.White ( 6, 1 ) (Time.millisToPosix 123)))
             ]
+        , describe "toSgf"
+            [ test "normal" <|
+                \_ ->
+                    Expect.equal (Move.toSgf (Move.fromPlayerAndPosition Player.Black ( 1, 6 )))
+                        "B[af]"
+            , test "timed" <|
+                \_ ->
+                    Expect.equal (Move.toSgf (Move.fromPlayerAndPositionAndTime Player.White ( 6, 1 ) (Time.millisToPosix 123)))
+                        "W[fa]DT[123]"
+            ]
         ]
