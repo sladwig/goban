@@ -349,6 +349,9 @@ colLine idx =
 port setStorage : E.Value -> Cmd msg
 
 
+port fromCable : (String -> msg) -> Sub msg
+
+
 
 -- UPDATE
 
@@ -361,6 +364,7 @@ type Msg
     | GotTable (Result Bdom.Error Viewport)
     | Resize
     | EditStone Position
+    | FromCable String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -448,16 +452,37 @@ update msg model =
         EditStone position ->
             ( { model | editing = Just position }, Cmd.none )
 
+        FromCable stringy ->
+            let
+                newGame =
+                    case D.decodeString Game.decoder stringy of
+                        Ok game ->
+                            game
+
+                        Err _ ->
+                            model.game
+            in
+            ( { model | game = newGame }, Cmd.none )
+
 
 updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
 updateWithStorage msg oldModel =
     let
         ( newModel, cmds ) =
             update msg oldModel
+
+        updateCmd =
+            case msg of
+                FromCable _ ->
+                    Cmd.none
+
+                GotTable _ ->
+                    Cmd.none
+
+                _ ->
+                    setStorage (Game.encode newModel.game)
     in
-    ( newModel
-    , Cmd.batch [ setStorage (encode newModel), cmds ]
-    )
+    ( newModel, Cmd.batch [ updateCmd, cmds ] )
 
 
 
@@ -466,4 +491,7 @@ updateWithStorage msg oldModel =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    BrowserE.onResize (\_ _ -> Resize)
+    Sub.batch
+        [ BrowserE.onResize (\_ _ -> Resize)
+        , fromCable FromCable
+        ]
