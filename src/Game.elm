@@ -1,8 +1,13 @@
-module Game exposing (Game, fresh, fromSgf, gameInfoParser, info, infoToSgf, toSgf)
+module Game exposing (Game, decoder, encode, fresh, fromMoves, fromSgf, gameInfoParser, info, infoToSgf, makeMove, toBoard, toSgf, toTurn, undoMove)
 
+import Board exposing (Board)
 import Debug
+import Json.Decode as D
+import Json.Encode as E
+import List.Extra as ListExtra
 import Move exposing (Move)
 import Parser exposing ((|.), (|=), Parser)
+import Player exposing (Player)
 
 
 type alias Game =
@@ -126,3 +131,60 @@ movesParserHelper gameMoves =
 infoToSgf : GameInfo -> String
 infoToSgf a =
     a.attribute ++ "[" ++ a.value ++ "]"
+
+
+fromMoves : List Move -> Game
+fromMoves moves =
+    { fresh | moves = moves }
+
+
+toBoard : List Move -> Board
+toBoard moves =
+    List.foldl Board.applyPlay (Board.square 19) moves
+
+
+toTurn : List Move -> Player
+toTurn moves =
+    case modBy 2 (List.length moves) of
+        0 ->
+            Player.black
+
+        _ ->
+            Player.white
+
+
+makeMove : Game -> Move -> Game
+makeMove game move =
+    { game | moves = game.moves ++ [ move ] }
+
+
+undoMove : Game -> Game
+undoMove game =
+    let
+        oneLessMove =
+            case ListExtra.init game.moves of
+                Just someMoves ->
+                    someMoves
+
+                Nothing ->
+                    []
+    in
+    { game | moves = oneLessMove }
+
+
+
+-- JSON ENCODE/DECODE
+
+
+encode : Game -> E.Value
+encode game =
+    E.object
+        [ ( "moves", E.list Move.encode game.moves )
+        ]
+
+
+decoder : D.Decoder Game
+decoder =
+    D.map
+        fromMoves
+        (D.field "moves" (D.list Move.decoder))

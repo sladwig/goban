@@ -16,6 +16,7 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Flip exposing (flip)
+import Game exposing (Game)
 import Html exposing (Html)
 import Html.Attributes as HtmlA
 import Html.Events as HtmlE
@@ -23,6 +24,7 @@ import Json.Decode as D
 import Json.Encode as E
 import List.Extra as ListExtra
 import Move exposing (Move(..))
+import Parser exposing ((|.), (|=), Parser)
 import Platform.Cmd
 import Player exposing (Player)
 import Position exposing (Position)
@@ -48,63 +50,36 @@ main =
 
 
 type alias Model =
-    { turn : Player
-    , moves : List Move
+    { game : Game
     , table : Maybe Viewport
-    , board : Board
     , message : Maybe String
     , editing : Maybe Position
     }
 
 
-blankGame : Model
-blankGame =
-    { turn = Player.Black
-    , moves = []
+blank : Model
+blank =
+    { game = Game.fresh
     , table = Nothing
-    , board = Board.square 19
     , message = Nothing
     , editing = Nothing
     }
 
 
-fromPlayerAndMoves : Player -> List Move -> Model
-fromPlayerAndMoves p moves =
-    { blankGame | turn = p, moves = moves, board = List.foldr Board.applyPlay (Board.square 19) moves }
 
 
 init : E.Value -> ( Model, Cmd Msg )
 init flags =
-    ( case D.decodeValue decoder flags of
-        Ok model ->
-            model
+    ( case D.decodeValue Game.decoder flags of
+        Ok game ->
+            { blank | game = game }
 
         Err _ ->
-            blankGame
+            blank
     , Cmd.batch
         [ Task.attempt GotTable (Bdom.getViewportOf "table")
         ]
     )
-
-
-
--- JSON ENCODE/DECODE
-
-
-encode : Model -> E.Value
-encode model =
-    E.object
-        [ ( "turn", E.string (Player.toString model.turn) )
-        , ( "moves", E.list Move.encode model.moves )
-        ]
-
-
-decoder : D.Decoder Model
-decoder =
-    D.map2
-        fromPlayerAndMoves
-        (D.field "turn" Player.decoder)
-        (D.field "moves" (D.list Move.decoder))
 
 
 
@@ -207,7 +182,7 @@ prettyBoard model =
                     , dot 16 10
                     , dot 16 16
                     , clickAreas
-                    , yunziis (Board.movesOf model.board)
+                    , yunziis (Board.movesOf (Game.toBoard model.game.moves))
                     ]
                 )
             )
@@ -221,7 +196,7 @@ sideBoard model =
         (Element.column [ Element.scrollbars ]
             [ --message model.message
               Element.el [] buttons
-            , Element.text (Player.toString model.turn)
+            , Element.text (Player.toString (Game.toTurn model.game.moves))
             , viewEditing model.editing
             , Input.multiline
                 [ Element.height (Element.px 400)
@@ -390,6 +365,10 @@ type Msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        moves =
+            model.game.moves
+    in
     case msg of
         Click coordinate ->
             case model.editing of
@@ -399,57 +378,49 @@ update msg model =
                 Just pos ->
                     let
                         elementIndex =
-                            Debug.log "elementIndec"
-                                (ListExtra.findIndex
-                                    (\move ->
-                                        let
-                                            movepos =
-                                                Move.positionOf move
-                                        in
-                                        Position.x movepos == Position.x pos && Position.y movepos == Position.y pos
-                                    )
-                                    model.moves
+                            ListExtra.findIndex
+                                (\move ->
+                                    let
+                                        movepos =
+                                            Move.positionOf move
+                                    in
+                                    Position.x movepos == Position.x pos && Position.y movepos == Position.y pos
                                 )
+                                moves
 
                         replacedMove : Maybe Move
                         replacedMove =
-                            Debug.log "move"
-                                (case elementIndex of
-                                    Just i ->
-                                        ListExtra.getAt i model.moves
+                            case elementIndex of
+                                Just i ->
+                                    ListExtra.getAt i moves
 
-                                    Nothing ->
-                                        Nothing
-                                )
+                                Nothing ->
+                                    Nothing
 
                         newMoves =
-                            Debug.log "mocvvis"
-                                (case ( elementIndex, replacedMove ) of
-                                    ( Just i, Just oldMove ) ->
-                                        case oldMove of
-                                            Move.Normal a ->
-                                                ListExtra.setAt i (Move.fromPlayerAndPosition (Move.playerOf oldMove) coordinate) model.moves
+                            case ( elementIndex, replacedMove ) of
+                                ( Just i, Just oldMove ) ->
+                                    case oldMove of
+                                        Move.Normal a ->
+                                            ListExtra.setAt i (Move.fromPlayerAndPosition (Move.playerOf oldMove) coordinate) moves
 
-                                            Move.Timed a ->
-                                                ListExtra.setAt i (Move.fromPlayerAndPositionAndTime (Move.playerOf oldMove) coordinate a.at) model.moves
+                                        Move.Timed a ->
+                                            ListExtra.setAt i (Move.fromPlayerAndPositionAndTime (Move.playerOf oldMove) coordinate a.at) moves
 
-                                    _ ->
-                                        model.moves
-                                )
+                                _ ->
+                                    moves
                     in
-                    ( { model | moves = newMoves, editing = Nothing, board = List.foldr Board.applyPlay (Board.square 19) newMoves }, Cmd.none )
+                    ( { model | game = Game.fromMoves newMoves, editing = Nothing }, Cmd.none )
 
         TimedClick coordinate time ->
             let
                 move =
-                    Move.fromPlayerAndPositionAndTime model.turn coordinate time
+                    Move.fromPlayerAndPositionAndTime (Game.toTurn moves) coordinate time
             in
-            case Board.play move model.board of
+            case Board.play move (Game.toBoard moves) of
                 Ok board ->
                     ( { model
-                        | board = board
-                        , turn = Player.next model.turn
-                        , moves = move :: model.moves
+                        | game = Game.makeMove model.game move
                         , message = Nothing
                       }
                     , Cmd.none
@@ -466,17 +437,7 @@ update msg model =
             ( { model | turn = Player.next model.turn }, Cmd.none )
 
         Undo ->
-            let
-                oneLessMove =
-                    Maybe.withDefault model.moves (List.tail model.moves)
-            in
-            ( { model
-                | turn = Player.next model.turn
-                , moves = oneLessMove
-                , board = List.foldr Board.applyPlay (Board.square 19) oneLessMove
-              }
-            , Cmd.none
-            )
+            ( { model | game = Game.undoMove model.game }, Cmd.none )
 
         GotTable vp ->
             ( { model | table = Result.toMaybe vp }, Cmd.none )
