@@ -39,76 +39,86 @@
       flags,
       node: document.getElementById("goban"),
     });
-   
+
+    var pingTimer = null;
 
     function createGameConnection(gameId) {
-              // Creates the new WebSocket connection.
-        socket = new WebSocket("{{CABLE_URL}}");
+      // Creates the new WebSocket connection.
+      socket = new WebSocket("{{CABLE_URL}}");
 
-      socket.onopen = function(event) {
-       app.ports.setStorage.subscribe(function (state) {
+      socket.onopen = function (event) {
+        app.ports.setStorage.subscribe(function (state) {
           if (state === null) {
             localStorage.removeItem(key);
           } else {
             console.log("stat", state);
             localStorage.setItem(key, JSON.stringify(state));
-            localStorage.setItem("bb-" +Date.now(), JSON.stringify(state)); // just to be sure
+            localStorage.setItem("bb-" + Date.now(), JSON.stringify(state)); // just to be sure
             const msg = {
-              command: 'message',
-              data: JSON.stringify({action: 'state', state: state}),
-              identifier: JSON.stringify({channel: "GameChannel", id: "ab0dc465-fd83-4ad9-86d1-04da44a90f4c"})
-
-            }
-            socket.send(JSON.stringify(msg))
-            console.log('sended a message: ', msg)
-          }
-        });
-
-
- 
-         // When the connection is first created, this code runs subscribing the client to a specific chatroom stream in the ChatRoomChannel.
-        
-            console.log('WebSocket is connected.');
-            const msg = {
-                command: 'subscribe',
-                identifier: JSON.stringify({channel: "GameChannel", id: "ab0dc465-fd83-4ad9-86d1-04da44a90f4c"}), 
+              command: "message",
+              data: JSON.stringify({ action: "state", state: state }),
+              identifier: JSON.stringify({
+                channel: "GameChannel",
+                id: "ab0dc465-fd83-4ad9-86d1-04da44a90f4c",
+              }),
             };
             socket.send(JSON.stringify(msg));
-        };
-        
-        // When the connection is closed, this code will run.
-        socket.onclose = function(event) {
-             console.log('WebSocket is closed.');
-        };
-        // When a message is received through the websocket, this code will run.
-        socket.onmessage = function(event) {            
-            const response = event.data;
-            const msg = JSON.parse(response);
-            
-            // Ignores pings.
-            if (msg.type === "ping") {
-                return;
-            }
-            console.log("FROM RAILS: ", msg);
-            
-            // Renders any newly created messages onto the page.
-            if (msg.message) {
-                console.log(msg.message)
-                if (msg.message.action === "state") {
-                  console.log('send state to elm', msg.message.state)
-                  app.ports.fromCable.send(JSON.stringify(msg.message.state))
-                }
-                            
+            console.log("sended a message: ", msg);
+          }
+          // Report that the new session was stored successfully.
+          // setTimeout(function() { app.ports.onStoreChange.send(val); }, 0);
+        });
 
-            }
-            
+        // When the connection is first created, this code runs subscribing the client to a specific chatroom stream in the ChatRoomChannel.
+
+        console.log("WebSocket is connected.");
+        const msg = {
+          command: "subscribe",
+          identifier: JSON.stringify({
+            channel: "GameChannel",
+            id: "ab0dc465-fd83-4ad9-86d1-04da44a90f4c",
+          }),
         };
-        
-        // When an error occurs through the websocket connection, this code is run printing the error message.
-        socket.onerror = function(error) {
-            console.log('WebSocket Error: ' + JSON.stringify(error));
-        };
+        socket.send(JSON.stringify(msg));
+      };
+
+      // When the connection is closed, this code will run.
+      socket.onclose = function (event) {
+        console.log("WebSocket is closed.");
+        window.clearTimeout(pingTimer);
+        createGameConnection("closedReconnect");
+      };
+      // When a message is received through the websocket, this code will run.
+      socket.onmessage = function (event) {
+        const response = event.data;
+        const msg = JSON.parse(response);
+
+        // Ignores pings.
+        if (msg.type === "ping") {
+          window.clearTimeout(pingTimer);
+          pingTimer = setTimeout(() => createGameConnection("reconnect"), 6000);
+          console.log("got a ping");
+          return;
+        }
+        console.log("FROM RAILS: ", msg);
+
+        // Renders any newly created messages onto the page.
+        if (msg.message) {
+          console.log(msg.message);
+          if (msg.message.action === "state") {
+            console.log("send state to elm", msg.message.state);
+            app.ports.fromCable.send(JSON.stringify(msg.message.state));
+          }
+        }
+      };
+
+      // When an error occurs through the websocket connection, this code is run printing the error message.
+      socket.onerror = function (error) {
+        console.log("WebSocket Error: " + JSON.stringify(error));
+        pingTimer = setTimeout(() => createGameConnection("retry"), 3000);
+      };
     }
-    createGameConnection('abc')
+    createGameConnection("abc");
+
   </script>
 </html>
