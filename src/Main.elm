@@ -1,9 +1,5 @@
 port module Main exposing (main)
 
--- import Element.html as ElHtml
--- import Json.Decode as Decode
--- import Element.Nothing as Nothing
-
 import Basics
 import Board exposing (Board, movesOf)
 import Browser
@@ -39,7 +35,7 @@ main : Program E.Value Model Msg
 main =
     Browser.element
         { init = init
-        , update = updateWithStorage
+        , update = update
         , subscriptions = subscriptions
         , view = view
         }
@@ -64,8 +60,6 @@ blank =
     , message = Nothing
     , editing = Nothing
     }
-
-
 
 
 init : E.Value -> ( Model, Cmd Msg )
@@ -264,7 +258,8 @@ yunzi move =
         (List.append (onPosition pos)
             [ SvgA.r "5"
             , SvgA.fill color
-            , SvgE.onClick (EditStone pos)
+
+            --, SvgE.onClick (EditStone pos)
             ]
         )
         []
@@ -287,7 +282,7 @@ clicky xy =
             [ SvgA.r "5"
             , SvgA.opacity "0.5"
             , SvgA.fill "transparent"
-            , SvgE.onClick (Click xy)
+            , SvgE.onClick (MoveAt xy)
             ]
         )
         []
@@ -304,12 +299,17 @@ svgCols =
 
 
 dot : Int -> Int -> Svg Msg
-dot x y =
+dot =
+    dotWithColor "#dd2d2d2"
+
+
+dotWithColor : String -> Int -> Int -> Svg Msg
+dotWithColor color x y =
     Svg.circle
         [ SvgA.r "1.5"
         , SvgA.cx (str (fieldSize * x))
         , SvgA.cy (str (fieldSize * y))
-        , SvgA.fill "#2d2d2d"
+        , SvgA.fill color
         ]
         []
 
@@ -349,7 +349,7 @@ colLine idx =
 port setStorage : E.Value -> Cmd msg
 
 
-port fromCable : (String -> msg) -> Sub msg
+port loadGame : (String -> msg) -> Sub msg
 
 
 
@@ -357,27 +357,35 @@ port fromCable : (String -> msg) -> Sub msg
 
 
 type Msg
-    = Click Position
-    | TimedClick Position Time.Posix
+    = MoveAt Position
+    | TimedMoveAt Position Time.Posix
     | Pass
     | Undo
     | GotTable (Result Bdom.Error Viewport)
     | Resize
     | EditStone Position
-    | FromCable String
+    | LoadGame String
+
+
+moveUpdate : Game -> Cmd Msg
+moveUpdate game =
+    setStorage (Game.encode game)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     let
+        game =
+            model.game
+
         moves =
             model.game.moves
     in
     case msg of
-        Click coordinate ->
+        MoveAt coordinate ->
             case model.editing of
                 Nothing ->
-                    ( model, Time.now |> Task.perform (TimedClick coordinate) )
+                    ( model, Task.perform (TimedMoveAt coordinate) Time.now )
 
                 Just pos ->
                     let
@@ -413,21 +421,28 @@ update msg model =
 
                                 _ ->
                                     moves
-                    in
-                    ( { model | game = Game.fromMoves newMoves, editing = Nothing }, Cmd.none )
 
-        TimedClick coordinate time ->
+                        newGame =
+                            Game.fromMoves newMoves
+                    in
+                    ( { model | game = newGame, editing = Nothing }, moveUpdate newGame )
+
+        TimedMoveAt coordinate time ->
             let
                 move =
                     Move.fromPlayerAndPositionAndTime (Game.toTurn moves) coordinate time
             in
             case Board.play move (Game.toBoard moves) of
                 Ok board ->
+                    let
+                        newGame =
+                            Game.makeMove game move
+                    in
                     ( { model
-                        | game = Game.makeMove model.game move
+                        | game = newGame
                         , message = Nothing
                       }
-                    , Cmd.none
+                    , moveUpdate newGame
                     )
 
                 Err reason ->
@@ -438,10 +453,15 @@ update msg model =
                     )
 
         Pass ->
-            ( { model | turn = Player.next model.turn }, Cmd.none )
+            -- TODO
+            ( model, moveUpdate game )
 
         Undo ->
-            ( { model | game = Game.undoMove model.game }, Cmd.none )
+            let
+                newGame =
+                    Game.undoMove game
+            in
+            ( { model | game = newGame }, moveUpdate newGame )
 
         GotTable vp ->
             ( { model | table = Result.toMaybe vp }, Cmd.none )
@@ -452,37 +472,17 @@ update msg model =
         EditStone position ->
             ( { model | editing = Just position }, Cmd.none )
 
-        FromCable stringy ->
+        LoadGame stringy ->
             let
                 newGame =
                     case D.decodeString Game.decoder stringy of
-                        Ok game ->
-                            game
+                        Ok aGame ->
+                            aGame
 
                         Err _ ->
-                            model.game
+                            game
             in
             ( { model | game = newGame }, Cmd.none )
-
-
-updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
-updateWithStorage msg oldModel =
-    let
-        ( newModel, cmds ) =
-            update msg oldModel
-
-        updateCmd =
-            case msg of
-                FromCable _ ->
-                    Cmd.none
-
-                GotTable _ ->
-                    Cmd.none
-
-                _ ->
-                    setStorage (Game.encode newModel.game)
-    in
-    ( newModel, Cmd.batch [ updateCmd, cmds ] )
 
 
 
@@ -493,5 +493,5 @@ subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
         [ BrowserE.onResize (\_ _ -> Resize)
-        , fromCable FromCable
+        , loadGame LoadGame
         ]

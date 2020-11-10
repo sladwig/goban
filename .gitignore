@@ -1,5 +1,9 @@
 elm-stuff/
 node_modules/
 dist/
-build/
 tmux*
+.build
+build*
+web_modules
+node_modules
+.ignored
