@@ -105,109 +105,101 @@ strf =
     String.fromFloat
 
 
+tableColor : Element.Color
+tableColor =
+    Element.rgb255 164 143 122
+
+
 view : Model -> Html Msg
 view model =
     Element.layout
-        [ Element.width Element.fill
-        , Element.height Element.fill
-        ]
-        (boardSideBoard model)
-
-
-boardSideBoard : Model -> Element Msg
-boardSideBoard model =
-    Element.row
         [ Element.width Element.fill
         , Element.height Element.fill
         , Element.centerX
         , Element.centerY
         , Background.color (Element.rgb255 164 143 122)
         ]
-        [ Element.el
-            [ Element.width (Element.fillPortion 3)
-            , Element.height Element.fill
-            , Element.centerX
-            , Element.htmlAttribute (HtmlA.id "table")
-            ]
-            (prettyBoard model)
-        , Element.el
-            [ Element.width (Element.fillPortion 1)
-            , Element.alignTop
-            , Element.height Element.fill
-            ]
-            (sideBoard model)
+        (viewBoardAndPanel model)
+
+
+viewBoardAndPanel : Model -> Element Msg
+viewBoardAndPanel model =
+    Element.row
+        [ Element.width Element.fill
+        , Element.height Element.fill
+        , Element.centerX
+        , Element.centerY
+        ]
+        [ viewBoard model.table model.highlighted model.game.moves
+        , viewPanel model.message model.highlighted model.game.moves
         ]
 
 
-prettyBoard : Model -> Element Msg
-prettyBoard model =
+viewBoard : Maybe Viewport -> Int -> List Move -> Element Msg
+viewBoard table highlighted allMoves =
     let
         theSize =
             str (20 * fieldSize)
 
         svgSize =
-            case model.table of
+            case table of
                 Nothing ->
                     0
 
-                Just table ->
-                    Basics.min table.viewport.height table.viewport.width
+                Just t ->
+                    Basics.min t.viewport.height t.viewport.width
 
         moves =
-            List.take (model.highlighted + 1) model.game.moves
+            List.take (highlighted + 1) allMoves
     in
     Element.el
-        [ Element.width Element.fill
+        [ Element.width (Element.fillPortion 3)
         , Element.height Element.fill
+        , Element.centerX
+        , Element.centerY
+        , Element.htmlAttribute (HtmlA.id "table")
         ]
-        (Element.el
-            [ Element.width (Element.px (Basics.ceiling svgSize))
-            , Element.centerX
-            , Element.centerY
-            ]
-            (Element.html
-                (Svg.svg
-                    [ SvgA.version "1.1"
-                    , SvgA.height (strf svgSize)
-                    , SvgA.width (strf svgSize)
-                    , SvgA.viewBox ("0 0 " ++ theSize ++ " " ++ theSize)
-                    ]
-                    [ svgRows
-                    , svgCols
-                    , dot 4 4
-                    , dot 4 10
-                    , dot 4 16
-                    , dot 10 4
-                    , dot 10 10
-                    , dot 10 16
-                    , dot 16 4
-                    , dot 16 10
-                    , dot 16 16
-                    , clickAreas
-                    , yunziis (Board.movesOf (Game.toBoard moves))
-                    , lastMove (ListExtra.last moves)
-                    ]
-                )
+        (Element.html
+            (Svg.svg
+                [ SvgA.version "1.1"
+                , SvgA.height (strf svgSize)
+                , SvgA.width (strf svgSize)
+                , SvgA.viewBox ("0 0 " ++ theSize ++ " " ++ theSize)
+                ]
+                [ svgRows
+                , svgCols
+                , dot 4 4
+                , dot 4 10
+                , dot 4 16
+                , dot 10 4
+                , dot 10 10
+                , dot 10 16
+                , dot 16 4
+                , dot 16 10
+                , dot 16 16
+                , yunziis (Board.movesOf (Game.toBoard moves))
+                , clickAreas
+                , lastMove (ListExtra.last moves)
+                ]
             )
         )
 
 
-sideBoard : Model -> Element Msg
-sideBoard model =
-    Element.el
-        [ Element.width Element.fill
+viewPanel : Maybe String -> Int -> List Move -> Element Msg
+viewPanel message highlighted moves =
+    Element.column
+        [ Element.spacing 15
+        , Element.centerX
+        , Element.alignTop
         , Element.height Element.fill
+        , Element.width (Element.fillPortion 1)
+        , Element.paddingXY 0 60
         ]
-        (Element.column
-            [ Element.spacing 15
-            , Element.centerX
-            ]
-            [ viewButtons
-            , viewPlayers (Game.toTurn model.game.moves)
-            , viewMoves model.highlighted model.game.moves
-            , viewMessage model.message
-            ]
-        )
+        [ viewButtons
+        , viewPlayers (Game.toTurn moves)
+        , viewMoves highlighted moves
+        , viewMessage message
+        ]
 
 
 lastMove : Maybe Move -> Svg Msg
@@ -222,10 +214,10 @@ lastMove maybeMove =
                     Move.positionOf move
             in
             Svg.circle
-                (List.append (onPosition pos)
-                    [ SvgA.r "1"
-                    , SvgA.fill color
-                    ]
+                (onPosition pos
+                    ++ [ SvgA.r "1"
+                       , SvgA.fill color
+                       ]
                 )
                 []
 
@@ -308,6 +300,7 @@ viewMoves highlighted moves =
     in
     Element.wrappedRow
         [ Element.spacing 3
+        , Element.centerX
         , Element.width (Element.px ((size + spacing) * 10))
         , Element.htmlAttribute (HtmlE.onMouseLeave (Highlight (List.length moves)))
         ]
@@ -349,16 +342,6 @@ viewMove s highlighted index move =
         ]
 
 
-viewEditing : Maybe Position -> Element Msg
-viewEditing p =
-    case p of
-        Nothing ->
-            Element.text ""
-
-        Just pos ->
-            Element.text (Position.toString pos)
-
-
 viewMessage : Maybe String -> Element Msg
 viewMessage msg =
     case msg of
@@ -381,7 +364,7 @@ viewButtons : Element Msg
 viewButtons =
     Element.row
         [ Element.spacing 5
-        , Element.paddingEach { top = 60, right = 0, left = 0, bottom = 50 }
+        , Element.paddingEach { top = 0, right = 0, left = 0, bottom = 50 }
         , Element.width Element.fill
         ]
         [ viewButton (viewIcon Icons.undoOutlined) Undo "Undo"
