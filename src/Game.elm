@@ -67,11 +67,13 @@ fromParsing i m =
 fromSgf : Parser Game
 fromSgf =
     Parser.succeed fromParsing
+        |. Parser.spaces
         |. Parser.symbol "("
         |. Parser.symbol ";"
         |= gameInfosParser
         |= movesParser
         |. Parser.symbol ")"
+        |. Parser.spaces
 
 
 type alias GameInfo =
