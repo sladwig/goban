@@ -1,5 +1,7 @@
 port module Main exposing (main)
 
+import Ant.Icon as AIcon
+import Ant.Icons as Icons
 import Basics
 import Board exposing (Board, movesOf)
 import Browser
@@ -11,6 +13,9 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
+import File exposing (File)
+import File.Download as Download
+import File.Select as Select
 import Flip exposing (flip)
 import Game exposing (Game)
 import Html exposing (Html)
@@ -50,6 +55,7 @@ type alias Model =
     , table : Maybe Viewport
     , message : Maybe String
     , editing : Maybe Position
+    , highlighted : Int
     }
 
 
@@ -59,6 +65,7 @@ blank =
     , table = Nothing
     , message = Nothing
     , editing = Nothing
+    , highlighted = 0
     }
 
 
@@ -66,7 +73,7 @@ init : E.Value -> ( Model, Cmd Msg )
 init flags =
     ( case D.decodeValue Game.decoder flags of
         Ok game ->
-            { blank | game = game }
+            { blank | game = game, highlighted = List.length game.moves }
 
         Err _ ->
             blank
@@ -116,20 +123,19 @@ boardSideBoard model =
         , Element.height Element.fill
         , Element.centerX
         , Element.centerY
-        , Element.spacing 30
         , Background.color (Element.rgb255 164 143 122)
         ]
         [ Element.el
             [ Element.width (Element.fillPortion 3)
             , Element.height Element.fill
-
-            -- , Background.color (Element.rgb255 240 0 245)
             , Element.centerX
             , Element.htmlAttribute (HtmlA.id "table")
             ]
             (prettyBoard model)
         , Element.el
             [ Element.width (Element.fillPortion 1)
+            , Element.alignTop
+            , Element.height Element.fill
             ]
             (sideBoard model)
         ]
@@ -148,9 +154,12 @@ prettyBoard model =
 
                 Just table ->
                     Basics.min table.viewport.height table.viewport.width
+
+        moves =
+            List.take (model.highlighted + 1) model.game.moves
     in
     Element.el
-        [ Element.width (Element.fillPortion 3)
+        [ Element.width Element.fill
         , Element.height Element.fill
         ]
         (Element.el
@@ -177,7 +186,8 @@ prettyBoard model =
                     , dot 16 10
                     , dot 16 16
                     , clickAreas
-                    , yunziis (Board.movesOf (Game.toBoard model.game.moves))
+                    , yunziis (Board.movesOf (Game.toBoard moves))
+                    , lastMove (ListExtra.last moves)
                     ]
                 )
             )
@@ -187,23 +197,159 @@ prettyBoard model =
 sideBoard : Model -> Element Msg
 sideBoard model =
     Element.el
-        [ Element.width (Element.fillPortion 3) ]
-        (Element.column [ Element.scrollbars ]
-            [ --message model.message
-              Element.el [] buttons
-            , Element.text (Player.toString (Game.toTurn model.game.moves))
+        [ Element.width Element.fill
+        , Element.height Element.fill
+        ]
+        (Element.column
+            [ Element.spacing 15
+            , Element.centerX
+            ]
+            [ viewButtons
+            , viewPlayers (Game.toTurn model.game.moves)
             , viewEditing model.editing
-            , Input.multiline
-                [ Element.height (Element.px 400)
-                ]
-                { label = Input.labelHidden "jo"
-                , onChange = \_ -> Undo
-                , placeholder = Just (Input.placeholder [] (Element.text ""))
-                , spellcheck = False
-                , text = String.join "\n" (List.map Move.toString model.moves)
-                }
+            , viewMoves model.highlighted model.game.moves
+            , viewMessage model.message
             ]
         )
+
+
+lastMove : Maybe Move -> Svg Msg
+lastMove maybeMove =
+    case maybeMove of
+        Just move ->
+            let
+                color =
+                    Player.toString (Player.next (Move.playerOf move))
+
+                pos =
+                    Move.positionOf move
+            in
+            Svg.circle
+                (List.append (onPosition pos)
+                    [ SvgA.r "1"
+                    , SvgA.fill color
+                    ]
+                )
+                []
+
+        Nothing ->
+            Svg.circle [] []
+
+
+viewPlayers : Player -> Element Msg
+viewPlayers currentPlayer =
+    let
+        players =
+            case currentPlayer == Player.Black of
+                True ->
+                    [ viewWhiteTurn, viewBlackTurn ]
+
+                False ->
+                    [ viewBlackTurn, viewWhiteTurn ]
+
+        bgColor =
+            case currentPlayer of
+                Player.White ->
+                    whiteColor
+
+                Player.Black ->
+                    blackColor
+    in
+    Element.el [ Element.centerX ]
+        (Element.html
+            (Svg.svg
+                [ SvgA.version "1.1"
+                , SvgA.height (strf 32)
+                , SvgA.width (strf 64)
+                , SvgA.viewBox "0 0 128 64"
+                ]
+                players
+            )
+        )
+
+
+viewWhiteTurn : Svg Msg
+viewWhiteTurn =
+    Svg.circle
+        [ SvgA.r "32"
+        , SvgA.cx (str (64 + (32 // 2)))
+        , SvgA.cy (str 32)
+        , SvgA.fill "white"
+        ]
+        []
+
+
+viewBlackTurn : Svg Msg
+viewBlackTurn =
+    Svg.circle
+        [ SvgA.r "32"
+        , SvgA.cx (str (64 - (32 // 2)))
+        , SvgA.cy (str 32)
+        , SvgA.fill "black"
+        ]
+        []
+
+
+whiteColor : Float -> Element.Color
+whiteColor alpha =
+    Element.fromRgb { alpha = alpha, blue = 1, green = 1, red = 1 }
+
+
+blackColor : Float -> Element.Color
+blackColor alpha =
+    Element.fromRgb { alpha = alpha, blue = 0, green = 0, red = 0 }
+
+
+viewMoves : Int -> List Move -> Element Msg
+viewMoves highlighted moves =
+    let
+        size =
+            16
+
+        spacing =
+            4
+    in
+    Element.wrappedRow
+        [ Element.spacing 3
+        , Element.width (Element.px ((size + spacing) * 10))
+        , Element.htmlAttribute (HtmlE.onMouseLeave (Highlight (List.length moves)))
+        ]
+        (List.indexedMap (viewMove size highlighted) moves)
+
+
+viewMove : Int -> Int -> Int -> Move -> Element Msg
+viewMove s highlighted index move =
+    let
+        size =
+            Element.px s
+
+        bgColor =
+            case Move.playerOf move of
+                Player.White ->
+                    whiteColor
+
+                Player.Black ->
+                    blackColor
+
+        alpha =
+            case index <= highlighted of
+                True ->
+                    1
+
+                False ->
+                    0.3
+    in
+    Element.row
+        [ Element.htmlAttribute (HtmlE.onMouseEnter (Highlight index))
+        ]
+        [ Element.el
+            [ Background.color (bgColor alpha)
+            , Element.width size
+            , Element.height size
+            , Border.rounded (s // 2)
+            ]
+            Element.none
+        ]
 
 
 viewEditing : Maybe Position -> Element Msg
@@ -216,21 +362,52 @@ viewEditing p =
             Element.text (Position.toString pos)
 
 
-message : Maybe String -> Element Msg
-message msg =
+viewMessage : Maybe String -> Element Msg
+viewMessage msg =
     case msg of
         Nothing ->
             Element.none
 
         Just reason ->
-            Element.text reason
+            Element.el [ Element.alignBottom ] (Element.text reason)
 
 
-buttons : Element Msg
-buttons =
-    Element.row []
-        [ Element.html (Html.button [ HtmlE.onClick Pass ] [ Html.text "pass" ])
-        , Element.html (Html.button [ HtmlE.onClick Undo ] [ Html.text "undo" ])
+viewButtons : Element Msg
+viewButtons =
+    Element.row
+        [ Element.spacing 5
+        , Element.paddingEach { top = 60, right = 0, left = 0, bottom = 50 }
+        , Element.width Element.fill
+        ]
+        [ viewButton (viewIcon Icons.undoOutlined) Undo "Undo"
+        , viewButton (viewIcon Icons.smallDashOutlined) Pass "Pass"
+        , viewButton (viewIcon Icons.downloadOutlined) DownloadGame "Download Game"
+        , viewButton (viewIcon Icons.uploadOutlined) SelectGameFile "Upload Game"
+        , viewButton (viewIcon Icons.borderlessTableOutlined) ConfirmReset "Reset Game"
+        ]
+
+
+viewButton : Element Msg -> Msg -> String -> Element Msg
+viewButton label msg title =
+    Input.button
+        [ Background.color (Element.rgba255 238 238 238 0.8)
+        , Element.mouseOver [ Background.color (Element.rgba255 238 238 238 1) ]
+        , Element.padding 5
+        , Border.rounded 24
+        , Element.centerX
+        , Font.color (Element.rgb255 164 143 122)
+        , Element.htmlAttribute (HtmlA.title title)
+        ]
+        { onPress = Just msg
+        , label = label
+        }
+
+
+viewIcon : (List (AIcon.Attribute msg) -> Element Msg) -> Element Msg
+viewIcon icon =
+    icon
+        [ AIcon.width 24
+        , AIcon.height 24
         ]
 
 
@@ -259,8 +436,6 @@ yunzi move =
         (List.append (onPosition pos)
             [ SvgA.r "5"
             , SvgA.fill color
-
-            --, SvgE.onClick (EditStone pos)
             ]
         )
         []
@@ -353,6 +528,12 @@ port setStorage : E.Value -> Cmd msg
 port loadGame : (E.Value -> msg) -> Sub msg
 
 
+port confirmReset : () -> Cmd msg
+
+
+port resetGame : (E.Value -> msg) -> Sub msg
+
+
 
 -- UPDATE
 
@@ -366,6 +547,13 @@ type Msg
     | Resize
     | EditStone Position
     | Load E.Value
+    | Highlight Int
+    | DownloadGame
+    | SelectGameFile
+    | GameFileSelected File
+    | GameFileUploaded String
+    | ConfirmReset
+    | ResetGame E.Value
 
 
 moveUpdate : Game -> Cmd Msg
@@ -483,7 +671,47 @@ update msg model =
                         Err _ ->
                             game
             in
-            ( { model | game = newGame }, Cmd.none )
+            ( { model | game = newGame, highlighted = List.length newGame.moves }, Cmd.none )
+
+        Highlight index ->
+            ( { model | highlighted = index }, Cmd.none )
+
+        DownloadGame ->
+            ( model, Cmd.batch [ Download.string "game.sgf" "text/sgf" (Game.toSgf model.game) ] )
+
+        SelectGameFile ->
+            ( model, Cmd.batch [ Select.file [ "text/sgf" ] GameFileSelected ] )
+
+        GameFileSelected sgfFile ->
+            ( model, Task.perform GameFileUploaded (File.toString sgfFile) )
+
+        GameFileUploaded sgf ->
+            let
+                newGame =
+                    case Parser.run Game.fromSgf sgf of
+                        Ok aGame ->
+                            aGame
+
+                        Err _ ->
+                            game
+            in
+            ( { model | game = newGame, highlighted = List.length newGame.moves }, moveUpdate newGame )
+
+        ConfirmReset ->
+            ( model, Cmd.batch [ confirmReset () ] )
+
+        ResetGame encodedBoolean ->
+            case D.decodeValue D.bool encodedBoolean of
+                Ok bool ->
+                    case bool of
+                        True ->
+                            ( { model | game = Game.fresh, highlighted = 0 }, moveUpdate Game.fresh )
+
+                        _ ->
+                            ( model, Cmd.none )
+
+                Err _ ->
+                    ( model, Cmd.none )
 
 
 
@@ -495,4 +723,5 @@ subscriptions _ =
     Sub.batch
         [ BrowserE.onResize (\_ _ -> Resize)
         , loadGame Load
+        , resetGame ResetGame
         ]

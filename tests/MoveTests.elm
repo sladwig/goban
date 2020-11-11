@@ -15,14 +15,22 @@ suite : Test
 suite =
     describe "Move"
         [ describe "fromSgf"
-            [ test "normal" <|
+            [ test "normal black" <|
                 \_ ->
                     Expect.equal (Parser.run Move.fromSgf "B[af]")
                         (Result.Ok (Move.fromPlayerAndPosition Player.Black ( 1, 6 )))
-            , test "timed" <|
+            , test "timed white" <|
                 \_ ->
                     Expect.equal (Parser.run Move.fromSgf "W[fa]DT[123]")
                         (Result.Ok (Move.fromPlayerAndPositionAndTime Player.White ( 6, 1 ) (Time.millisToPosix 123)))
+            ,test "normal white" <|
+                \_ ->
+                    Expect.equal (Parser.run Move.fromSgf "W[af]")
+                        (Result.Ok (Move.fromPlayerAndPosition Player.White ( 1, 6 )))
+            , test "timed black" <|
+                \_ ->
+                    Expect.equal (Parser.run Move.fromSgf "B[fa]DT[123]")
+                        (Result.Ok (Move.fromPlayerAndPositionAndTime Player.Black ( 6, 1 ) (Time.millisToPosix 123)))
             ]
         , describe "toSgf"
             [ test "normal" <|

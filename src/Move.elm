@@ -141,6 +141,5 @@ fromSgf =
                 |. Parser.symbol "["
                 |= timefromSgf
                 |. Parser.symbol "]"
-                |. Parser.end
             , Parser.succeed Nothing
             ]

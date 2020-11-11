@@ -67,8 +67,13 @@ const updateDB = (newState) => {
   set(key, newState);
   set('bb-' + now, newState); // backup just in case...
 };
+
 App.ports.setStorage.subscribe(function (state) {
   updateDB(state);
 
   updateState(state);
+});
+
+App.ports.confirmReset.subscribe(function () {
+  App.ports.resetGame.send(window.confirm('Reset game?'));
 });
