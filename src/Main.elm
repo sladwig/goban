@@ -522,10 +522,10 @@ colLine idx =
 -- PORTS
 
 
-port setStorage : E.Value -> Cmd msg
+port setStorage : String -> Cmd msg
 
 
-port loadGame : (E.Value -> msg) -> Sub msg
+port loadGame : (String -> msg) -> Sub msg
 
 
 port confirmReset : () -> Cmd msg
@@ -546,7 +546,7 @@ type Msg
     | GotTable (Result Bdom.Error Viewport)
     | Resize
     | EditStone Position
-    | Load E.Value
+    | Load String
     | Highlight Int
     | DownloadGame
     | SelectGameFile
@@ -558,7 +558,7 @@ type Msg
 
 moveUpdate : Game -> Cmd Msg
 moveUpdate game =
-    setStorage (Game.encode game)
+    setStorage (Game.toSgf game)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -661,10 +661,10 @@ update msg model =
         EditStone position ->
             ( { model | editing = Just position }, Cmd.none )
 
-        Load encodedGame ->
+        Load sgfGame ->
             let
                 newGame =
-                    case D.decodeValue Game.decoder encodedGame of
+                    case Parser.run Game.fromSgf sgfGame of
                         Ok aGame ->
                             aGame
 

@@ -43,9 +43,9 @@ App.gameChannel = App.cable.subscriptions.create(
       App.connected = true;
       App.tryNotify();
     },
-    received: function (state) {
-      App.ports.loadGame.send(state);
-      updateDB(state);
+    received: function ({ sgf }) {
+      App.ports.loadGame.send(sgf);
+      updateDB(sgf);
     },
     disconnected: function () {
       App.connected = false;
@@ -53,25 +53,25 @@ App.gameChannel = App.cable.subscriptions.create(
   },
 );
 
-get(key).then((state) => {
-  if (!state) return;
+get(key).then((sgf) => {
+  if (!sgf) return;
 
-  App.ports.loadGame.send(state);
+  App.ports.loadGame.send(sgf);
 });
 const updateState = (newState) => {
   App.retryStack.push(newState);
   App.tryNotify();
 };
-const updateDB = (newState) => {
+const updateDB = (sgf) => {
   var now = new Date().toISOString().substring(0, 19);
-  set(key, newState);
-  set('bb-' + now, newState); // backup just in case...
+  set(key, sgf);
+  set('bb-' + now, sgf); // backup just in case...
 };
 
-App.ports.setStorage.subscribe(function (state) {
-  updateDB(state);
+App.ports.setStorage.subscribe(function (sgf) {
+  updateDB(sgf);
 
-  updateState(state);
+  updateState({ sgf });
 });
 
 App.ports.confirmReset.subscribe(function () {
