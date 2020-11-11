@@ -54,7 +54,6 @@ type alias Model =
     { game : Game
     , table : Maybe Viewport
     , message : Maybe String
-    , editing : Maybe Position
     , highlighted : Int
     }
 
@@ -64,7 +63,6 @@ blank =
     { game = Game.fresh
     , table = Nothing
     , message = Nothing
-    , editing = Nothing
     , highlighted = 0
     }
 
@@ -206,7 +204,6 @@ sideBoard model =
             ]
             [ viewButtons
             , viewPlayers (Game.toTurn model.game.moves)
-            , viewEditing model.editing
             , viewMoves model.highlighted model.game.moves
             , viewMessage model.message
             ]
@@ -545,7 +542,6 @@ type Msg
     | Undo
     | GotTable (Result Bdom.Error Viewport)
     | Resize
-    | EditStone Position
     | Load String
     | Highlight Int
     | DownloadGame
@@ -572,49 +568,7 @@ update msg model =
     in
     case msg of
         MoveAt coordinate ->
-            case model.editing of
-                Nothing ->
-                    ( model, Task.perform (TimedMoveAt coordinate) Time.now )
-
-                Just pos ->
-                    let
-                        elementIndex =
-                            ListExtra.findIndex
-                                (\move ->
-                                    let
-                                        movepos =
-                                            Move.positionOf move
-                                    in
-                                    Position.x movepos == Position.x pos && Position.y movepos == Position.y pos
-                                )
-                                moves
-
-                        replacedMove : Maybe Move
-                        replacedMove =
-                            case elementIndex of
-                                Just i ->
-                                    ListExtra.getAt i moves
-
-                                Nothing ->
-                                    Nothing
-
-                        newMoves =
-                            case ( elementIndex, replacedMove ) of
-                                ( Just i, Just oldMove ) ->
-                                    case oldMove of
-                                        Move.Normal a ->
-                                            ListExtra.setAt i (Move.fromPlayerAndPosition (Move.playerOf oldMove) coordinate) moves
-
-                                        Move.Timed a ->
-                                            ListExtra.setAt i (Move.fromPlayerAndPositionAndTime (Move.playerOf oldMove) coordinate a.at) moves
-
-                                _ ->
-                                    moves
-
-                        newGame =
-                            Game.fromMoves newMoves
-                    in
-                    ( { model | game = newGame, editing = Nothing }, moveUpdate newGame )
+            ( model, Task.perform (TimedMoveAt coordinate) Time.now )
 
         TimedMoveAt coordinate time ->
             let
@@ -627,17 +581,10 @@ update msg model =
                         newGame =
                             Game.makeMove game move
                     in
-                    ( { model
-                        | game = newGame
-                        , message = Nothing
-                      }
-                    , moveUpdate newGame
-                    )
+                    ( { model | game = newGame, message = Nothing }, moveUpdate newGame )
 
                 Err reason ->
-                    ( { model
-                        | message = Just (Board.insertionFailureToString reason)
-                      }
+                    ( { model | message = Just (Board.insertionFailureToString reason) }
                     , Cmd.none
                     )
 
@@ -657,9 +604,6 @@ update msg model =
 
         Resize ->
             ( model, Task.attempt GotTable (Bdom.getViewportOf "table") )
-
-        EditStone position ->
-            ( { model | editing = Just position }, Cmd.none )
 
         Load sgfGame ->
             let
