@@ -117,6 +117,7 @@ boardSideBoard model =
         , Element.centerX
         , Element.centerY
         , Element.spacing 30
+        , Background.color (Element.rgb255 164 143 122)
         ]
         [ Element.el
             [ Element.width (Element.fillPortion 3)
