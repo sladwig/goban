@@ -44,19 +44,19 @@ insertionFailureToString : InsertionFailure -> String
 insertionFailureToString failure =
     case failure of
         Suicide ->
-            "suicidal?"
+            "Suicidal mate?"
 
         Occupied ->
-            "social distancing please!"
+            "Social distancing please!"
 
         OutOfBounds ->
-            "be realistic!"
+            "Don't throw yumnzis around."
 
         Unspecified _ ->
             "I dont undestand gibberisch!"
 
         Ko ->
-            "oh no"
+            "Oh no, Deja vu!"
 
 
 type alias Captures =

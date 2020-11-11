@@ -366,7 +366,15 @@ viewMessage msg =
             Element.none
 
         Just reason ->
-            Element.el [ Element.alignBottom ] (Element.text reason)
+            Element.el
+                [ Element.alignBottom
+                , Element.centerX
+                , Element.padding 15
+                , Background.color (whiteColor 0.4)
+                , Border.rounded 5
+                , Font.color tableColor
+                ]
+                (Element.text reason)
 
 
 viewButtons : Element Msg
