@@ -29,6 +29,7 @@ fresh =
         , info "WR" "_white rank_"
         , info "GN" "_Game Name_"
         , info "GC" "_Game Comment_"
+        , info "AP" "GOBAN 1.0"
         ]
     , moves = []
     }
