@@ -1,11 +1,11 @@
 import { get, set } from 'idb-keyval';
 import ActionCable from 'actioncable';
-
+import Elm from './Main.elm';
 
 var key = "goban";
 
 var App = Elm.Main.init({ flags: {moves: []}, node: document.getElementById("goban") });
-App.cable = ActionCable.createConsumer(import.meta.env.SNOWPACK_PUBLIC_CABLE_URL)
+App.cable = ActionCable.createConsumer(window.cableUrl)
 App.retryStack = []
 App.connected = false
 
@@ -39,28 +39,31 @@ App.gameChannel = App.cable.subscriptions.create({ channel: "GameChannel", id: "
 		App.connected = true
 		App.tryNotify()
 	}, 
-	received: function(d) {
-		App.ports.loadGame.send(JSON.stringify(d));
+	received: function(state) {
+		App.ports.loadGame.send(state)
+		updateDB(state)
 	},
 	disconnected: function() {
 		App.connected = false
 	}
 })
 
-get(key).then((dada) => {
-	if (!dada) return
+get(key).then((state) => {
+	if (!state) return
 
-	App.ports.loadGame.send(JSON.stringify(dada));
+	App.ports.loadGame.send(state);
 })
 const updateState = (newState) => {
 	App.retryStack.push(newState)
 	App.tryNotify()
 }
-
+const updateDB = (newState) => {
+	var now = new Date().toISOString().substring(0, 19);
+	set(key, newState) 
+	set("bb-"+now, newState) // backup just in case...
+}
 App.ports.setStorage.subscribe(function (state) {
-    var now = new Date().toISOString().substring(0, 19);
-   	set(key, state) 
-	set("bb-"+now, state) // backup just in case...
+	updateDB(state)
 
 	updateState(state)
 });

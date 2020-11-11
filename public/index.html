@@ -14,10 +14,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
 
     <!-- Enable the App Icon -->
-    <link rel="icon" type="image/png" sizes="196x196" href="/assets/icon.png" />
-    <link rel="apple-touch-icon" href="/assets/icon.png" />
-    <link rel="apple-touch-startup-image" href="/assets/icon.png" />
-    <link rel="manifest" href="/assets/site.webmanifest" />
+    <link rel="icon" type="image/png" sizes="196x196" href="/img/icon.png" />
+    <link rel="apple-touch-icon" href="/img/icon.png" />
+    <link rel="apple-touch-startup-image" href="/img/icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <meta name="viewport" content="width=device-width" />
     <meta
       name="viewport"
@@ -27,7 +27,7 @@
 
   <body>
     <div id="goban"></div>
-    <script type="text/javascript" src="/goban.js"></script>
-    <script type="module" src="/_dist_/index.js"></script>
+    <script type="text/javascript">window.cableUrl = "%SNOWPACK_PUBLIC_CABLE_URL%"</script>
+    <script type="module" src="/js/app.js"></script>
   </body>
 </html>

@@ -1,11 +1,18 @@
 /** @type {import("snowpack").SnowpackUserConfig } */
+
+console.log('Build Environment: ', process.env.NODE_ENV )
+const isProdution = process.env.NODE_ENV === "production"
+process.env.SNOWPACK_PUBLIC_JS_FILE = isProdution ? "goban.min.js" : "goban.js"
+process.env.SNOWPACK_PUBLIC_CABLE_URL = isProdution ? "wss://shoutan.herokuapp.com/cable/" : "ws://localhost:3000/cable/"
+
 module.exports = {
   mount: {
-    build: '/',
-    "src/js": '/_dist_/'
+    public: '/',
+    src: '/js/',
+
   },
   plugins: [
-    "@snowpack/plugin-dotenv"
+    "snowpack-plugin-elm"
   ],
   install: [
     /* ... */
@@ -14,16 +21,13 @@ module.exports = {
     /* ... */
   },
   devOptions: {
-    /* ... */
+    hostname: "devd.io",
+    port: 8000
   },
   buildOptions: {
-    out: "build-snow"
-    /* ... */
-  },
-  proxy: {
-    /* ... */
-  },
-  alias: {
-    /* ... */
+    clean: true,
+    out: process.env.NODE_ENV === "production" ? "dist" : "build-snow",
+    webModulesUrl: 'web',
+    metaDir: 'static'
   },
 };

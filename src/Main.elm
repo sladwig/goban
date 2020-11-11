@@ -349,7 +349,7 @@ colLine idx =
 port setStorage : E.Value -> Cmd msg
 
 
-port loadGame : (String -> msg) -> Sub msg
+port loadGame : (E.Value -> msg) -> Sub msg
 
 
 
@@ -364,7 +364,7 @@ type Msg
     | GotTable (Result Bdom.Error Viewport)
     | Resize
     | EditStone Position
-    | LoadGame String
+    | Load E.Value
 
 
 moveUpdate : Game -> Cmd Msg
@@ -472,10 +472,10 @@ update msg model =
         EditStone position ->
             ( { model | editing = Just position }, Cmd.none )
 
-        LoadGame stringy ->
+        Load encodedGame ->
             let
                 newGame =
-                    case D.decodeString Game.decoder stringy of
+                    case D.decodeValue Game.decoder encodedGame of
                         Ok aGame ->
                             aGame
 
@@ -493,5 +493,5 @@ subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
         [ BrowserE.onResize (\_ _ -> Resize)
-        , loadGame LoadGame
+        , loadGame Load
         ]
