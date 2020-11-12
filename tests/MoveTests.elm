@@ -23,7 +23,7 @@ suite =
                 \_ ->
                     Expect.equal (Parser.run Move.fromSgf "W[fa]DT[123]")
                         (Result.Ok (Move.fromPlayerAndPositionAndTime Player.White ( 6, 1 ) (Time.millisToPosix 123)))
-            ,test "normal white" <|
+            , test "normal white" <|
                 \_ ->
                     Expect.equal (Parser.run Move.fromSgf "W[af]")
                         (Result.Ok (Move.fromPlayerAndPosition Player.White ( 1, 6 )))

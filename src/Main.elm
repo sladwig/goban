@@ -7,6 +7,7 @@ import Board exposing (Board, movesOf)
 import Browser
 import Browser.Dom as Bdom exposing (Viewport)
 import Browser.Events as BrowserE
+import Browser.Navigation as Nav
 import Debug
 import Element exposing (Element)
 import Element.Background as Background
@@ -34,15 +35,18 @@ import Svg.Attributes as SvgA
 import Svg.Events as SvgE
 import Task
 import Time
+import Url
 
 
-main : Program E.Value Model Msg
+main : Program E.Value Goban Msg
 main =
-    Browser.element
+    Browser.application
         { init = init
         , update = update
         , subscriptions = subscriptions
         , view = view
+        , onUrlRequest = LinkClicked
+        , onUrlChange = UrlChanged
         }
 
 
@@ -50,31 +54,36 @@ main =
 -- MODEL
 
 
-type alias Model =
+type alias GobanInfos =
     { game : Game
     , table : Maybe Viewport
     , message : Maybe String
     , highlighted : Int
+    , navKey : Nav.Key
     }
 
 
-blank : Model
-blank =
+type alias Goban =
+    GobanInfos
+
+
+blank : Nav.Key -> GobanInfos
+blank key =
     { game = Game.fresh
     , table = Nothing
     , message = Nothing
     , highlighted = 0
+    , navKey = key
     }
 
 
-init : E.Value -> ( Model, Cmd Msg )
-init flags =
-    ( case D.decodeValue Game.decoder flags of
-        Ok game ->
-            { blank | game = game, highlighted = List.length game.moves }
-
-        Err _ ->
-            blank
+init : E.Value -> Url.Url -> Nav.Key -> ( Goban, Cmd Msg )
+init flags url key =
+    let
+        newRoom =
+            blank key
+    in
+    ( newRoom
     , Cmd.batch
         [ Task.attempt GotTable (Bdom.getViewportOf "table")
         ]
@@ -110,19 +119,23 @@ tableColor =
     Element.rgb255 164 143 122
 
 
-view : Model -> Html Msg
-view model =
-    Element.layout
-        [ Element.width Element.fill
-        , Element.height Element.fill
-        , Element.centerX
-        , Element.centerY
-        , Background.color (Element.rgb255 164 143 122)
+view : Goban -> Browser.Document Msg
+view goban =
+    { title = "Goban"
+    , body =
+        [ Element.layout
+            [ Element.width Element.fill
+            , Element.height Element.fill
+            , Element.centerX
+            , Element.centerY
+            , Background.color (Element.rgb255 164 143 122)
+            ]
+            (viewBoardAndPanel goban)
         ]
-        (viewBoardAndPanel model)
+    }
 
 
-viewBoardAndPanel : Model -> Element Msg
+viewBoardAndPanel : GobanInfos -> Element Msg
 viewBoardAndPanel model =
     Element.row
         [ Element.width Element.fill
@@ -147,7 +160,7 @@ viewBoard table highlighted allMoves =
                     0
 
                 Just t ->
-                    Basics.min t.viewport.height t.viewport.width
+                    -32 + Basics.min t.viewport.height t.viewport.width
 
         moves =
             List.take (highlighted + 1) allMoves
@@ -157,30 +170,40 @@ viewBoard table highlighted allMoves =
         , Element.height Element.fill
         , Element.centerX
         , Element.centerY
+        , Element.padding 15
         , Element.htmlAttribute (HtmlA.id "table")
         ]
-        (Element.html
-            (Svg.svg
-                [ SvgA.version "1.1"
-                , SvgA.height (strf svgSize)
-                , SvgA.width (strf svgSize)
-                , SvgA.viewBox ("0 0 " ++ theSize ++ " " ++ theSize)
-                ]
-                [ svgRows
-                , svgCols
-                , dot 4 4
-                , dot 4 10
-                , dot 4 16
-                , dot 10 4
-                , dot 10 10
-                , dot 10 16
-                , dot 16 4
-                , dot 16 10
-                , dot 16 16
-                , yunziis (Board.movesOf (Game.toBoard moves))
-                , clickAreas
-                , lastMove (ListExtra.last moves)
-                ]
+        (Element.el
+            [ Element.centerX
+            , Element.centerY
+
+            -- , Element.height
+            , Border.width 2
+            , Border.color <| Element.rgb255 45 45 45
+            ]
+            (Element.html
+                (Svg.svg
+                    [ SvgA.version "1.1"
+                    , SvgA.height (strf svgSize)
+                    , SvgA.width (strf svgSize)
+                    , SvgA.viewBox ("0 0 " ++ theSize ++ " " ++ theSize)
+                    ]
+                    [ svgRows
+                    , svgCols
+                    , dot 4 4
+                    , dot 4 10
+                    , dot 4 16
+                    , dot 10 4
+                    , dot 10 10
+                    , dot 10 16
+                    , dot 16 4
+                    , dot 16 10
+                    , dot 16 16
+                    , yunziis (Board.movesOf (Game.toBoard moves))
+                    , clickAreas
+                    , lastMove (ListExtra.last moves)
+                    ]
+                )
             )
         )
 
@@ -195,10 +218,11 @@ viewPanel message highlighted moves =
         , Element.width (Element.fillPortion 1)
         , Element.paddingXY 0 60
         ]
-        [ viewButtons
+        [ viewGameButtons
         , viewPlayers (Game.toTurn moves)
         , viewMoves highlighted moves
         , viewMessage message
+        , viewButtons
         ]
 
 
@@ -360,16 +384,27 @@ viewMessage msg =
                 (Element.text reason)
 
 
-viewButtons : Element Msg
-viewButtons =
+viewGameButtons : Element Msg
+viewGameButtons =
     Element.row
         [ Element.spacing 5
-        , Element.paddingEach { top = 0, right = 0, left = 0, bottom = 50 }
+        , Element.paddingEach { top = 0, right = 0, left = 0, bottom = 25 }
         , Element.width Element.fill
         ]
         [ viewButton (viewIcon Icons.undoOutlined) Undo "Undo"
         , viewButton (viewIcon Icons.smallDashOutlined) Pass "Pass"
-        , viewButton (viewIcon Icons.downloadOutlined) DownloadGame "Download Game"
+        ]
+
+
+viewButtons : Element Msg
+viewButtons =
+    Element.row
+        [ Element.alignBottom
+        , Element.spacing 5
+        , Element.paddingEach { top = 25, right = 0, left = 0, bottom = 0 }
+        , Element.width Element.fill
+        ]
+        [ viewButton (viewIcon Icons.downloadOutlined) DownloadGame "Download Game"
         , viewButton (viewIcon Icons.uploadOutlined) SelectGameFile "Upload Game"
         , viewButton (viewIcon Icons.borderlessTableOutlined) ConfirmReset "Reset Game"
         ]
@@ -464,7 +499,7 @@ svgCols =
 
 dot : Int -> Int -> Svg Msg
 dot =
-    dotWithColor "#dd2d2d2"
+    dotWithColor "#2d2d2d"
 
 
 dotWithColor : String -> Int -> Int -> Svg Msg
@@ -541,6 +576,8 @@ type Msg
     | GameFileUploaded String
     | ConfirmReset
     | ResetGame E.Value
+    | LinkClicked Browser.UrlRequest
+    | UrlChanged Url.Url
 
 
 moveUpdate : Game -> Cmd Msg
@@ -548,18 +585,18 @@ moveUpdate game =
     setStorage (Game.toSgf game)
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Goban -> ( Goban, Cmd Msg )
+update msg goban =
     let
         game =
-            model.game
+            goban.game
 
         moves =
-            model.game.moves
+            goban.game.moves
     in
     case msg of
         MoveAt coordinate ->
-            ( model, Task.perform (TimedMoveAt coordinate) Time.now )
+            ( goban, Task.perform (TimedMoveAt coordinate) Time.now )
 
         TimedMoveAt coordinate time ->
             let
@@ -572,29 +609,29 @@ update msg model =
                         newGame =
                             Game.makeMove game move
                     in
-                    ( { model | game = newGame, message = Nothing }, moveUpdate newGame )
+                    ( { goban | game = newGame, message = Nothing }, moveUpdate newGame )
 
                 Err reason ->
-                    ( { model | message = Just (Board.insertionFailureToString reason) }
+                    ( { goban | message = Just (Board.insertionFailureToString reason) }
                     , Cmd.none
                     )
 
         Pass ->
             -- TODO
-            ( model, moveUpdate game )
+            ( goban, moveUpdate game )
 
         Undo ->
             let
                 newGame =
                     Game.undoMove game
             in
-            ( { model | game = newGame }, moveUpdate newGame )
+            ( { goban | game = newGame }, moveUpdate newGame )
 
         GotTable vp ->
-            ( { model | table = Result.toMaybe vp }, Cmd.none )
+            ( { goban | table = Result.toMaybe vp }, Cmd.none )
 
         Resize ->
-            ( model, Task.attempt GotTable (Bdom.getViewportOf "table") )
+            ( goban, Task.attempt GotTable (Bdom.getViewportOf "table") )
 
         Load sgfGame ->
             let
@@ -606,19 +643,19 @@ update msg model =
                         Err _ ->
                             game
             in
-            ( { model | game = newGame, highlighted = List.length newGame.moves }, Cmd.none )
+            ( { goban | game = newGame, highlighted = List.length newGame.moves }, Cmd.none )
 
         Highlight index ->
-            ( { model | highlighted = index }, Cmd.none )
+            ( { goban | highlighted = index }, Cmd.none )
 
         DownloadGame ->
-            ( model, Cmd.batch [ Download.string "game.sgf" "text/sgf" (Game.toSgf model.game) ] )
+            ( goban, Cmd.batch [ Download.string "game.sgf" "text/sgf" (Game.toSgf goban.game) ] )
 
         SelectGameFile ->
-            ( model, Cmd.batch [ Select.file [ "text/sgf" ] GameFileSelected ] )
+            ( goban, Cmd.batch [ Select.file [ "text/sgf" ] GameFileSelected ] )
 
         GameFileSelected sgfFile ->
-            ( model, Task.perform GameFileUploaded (File.toString sgfFile) )
+            ( goban, Task.perform GameFileUploaded (File.toString sgfFile) )
 
         GameFileUploaded sgf ->
             let
@@ -630,30 +667,41 @@ update msg model =
                         Err _ ->
                             game
             in
-            ( { model | game = newGame, highlighted = List.length newGame.moves }, moveUpdate newGame )
+            ( { goban | game = newGame, highlighted = List.length newGame.moves }, moveUpdate newGame )
 
         ConfirmReset ->
-            ( model, Cmd.batch [ confirmReset () ] )
+            ( goban, Cmd.batch [ confirmReset () ] )
 
         ResetGame encodedBoolean ->
             case D.decodeValue D.bool encodedBoolean of
                 Ok bool ->
                     case bool of
                         True ->
-                            ( { model | game = Game.fresh, highlighted = 0 }, moveUpdate Game.fresh )
+                            ( { goban | game = Game.fresh, highlighted = 0 }, moveUpdate Game.fresh )
 
                         _ ->
-                            ( model, Cmd.none )
+                            ( goban, Cmd.none )
 
                 Err _ ->
-                    ( model, Cmd.none )
+                    ( goban, Cmd.none )
+
+        LinkClicked urlRequest ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( goban, Nav.pushUrl goban.navKey (Url.toString url) )
+
+                Browser.External href ->
+                    ( goban, Nav.load href )
+
+        UrlChanged _ ->
+            ( goban, Cmd.none )
 
 
 
 -- SUBSCRIPTIONS
 
 
-subscriptions : Model -> Sub Msg
+subscriptions : Goban -> Sub Msg
 subscriptions _ =
     Sub.batch
         [ BrowserE.onResize (\_ _ -> Resize)

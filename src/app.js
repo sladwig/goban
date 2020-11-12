@@ -6,7 +6,6 @@ var key = 'goban';
 
 var App = Elm.Main.init({
   flags: { moves: [] },
-  node: document.getElementById('goban'),
 });
 
 App.cable = ActionCable.createConsumer(window.cableUrl);
