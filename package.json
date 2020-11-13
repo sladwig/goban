@@ -3,14 +3,11 @@
   "description": "Elm Go - The Game of Go online",
   "scripts": {
     "dev": "run-p dev:*",
-    "dev:snowpack": "snowpack dev",
-    "dev:elm": "nodemon -e elm --exec \"./elm-module.sh src/Main.elm\"",
-    "dev:server": "es-dev-server --root-dir src --node-resolve --watch --open --port 1234",
-    "build": "run-s clean:build build:js build:html build:snowpack build:elm",
-    "build:html": "cp src/index.html dist/index.html",
-    "build:snowpack": "snowpack --config snowpack.prod.js",
-    "build:elm": "./elm-module.sh src/Main.elm && terser src/elm.js --compress 'pure_funcs=\"F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9\",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --mangle --output=dist/elm.js && rm -rf src/elm.js",
-    "build:js": "./build-js.sh",
+    "dev:snowpack": "snowpack dev ",
+    "build": "run-s clean:build build:js build:elm build:snowpacks",
+    "build:snowpack": "snowpack build",
+    "build:elm": "elm make --optimize --output=src/elm.js src/Main.elm && ./elm-module.sh && terser src/elm.js --compress 'pure_funcs=\"F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9\",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | terser --mangle --output=src/elm.js",
+    "build:js": "bash build-js.sh",
     "clean:build": "rm -rf src/web_modules dist src/elm.js",
     "clean:super": "rm -rf src/web_modules dist src/elm.js node_modules elm-stuff"
   },
@@ -21,12 +18,14 @@
     "elm-format": "^0.8.4",
     "elm-test": "^0.19.1-revision4",
     "elm-tooling": "^0.6.1",
+    "exec-sh": "^0.3.4",
     "nodemon": "^2.0.6",
     "npm-run-all": "^4.1.5",
     "prettier": "^2.0.5",
     "snowpack": "^2.17.0",
     "snowpack-plugin-elm": "^0.4.0",
-    "terser": "^5.3.8"
+    "terser": "^5.3.8",
+    "watch": "^1.0.2"
   },
   "dependencies": {
     "actioncable": "^5.2.4-4",

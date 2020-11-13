@@ -4,7 +4,6 @@ import Elm from './elm.js';
 
 var App = Elm.Main.init({ flags: { moves: [] } });
 
-
 App.ports.enterRoom.subscribe((game) => {
   BroadCast.createChannelFor(game);
 

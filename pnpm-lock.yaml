@@ -9,12 +9,14 @@ devDependencies:
   elm-format: 0.8.4
   elm-test: 0.19.1-revision4
   elm-tooling: 0.6.1
+  exec-sh: 0.3.4
   nodemon: 2.0.6
   npm-run-all: 4.1.5
   prettier: 2.1.2
   snowpack: 2.17.0
   snowpack-plugin-elm: 0.4.0
   terser: 5.3.8
+  watch: 1.0.2
 lockfileVersion: 5.2
 packages:
   /@babel/code-frame/7.10.4:
@@ -2565,6 +2567,16 @@ packages:
     dev: true
     resolution:
       integrity: sha512-8guHBZCwKnFhYdHr2ysuRWErTwhoN2X8XELRlrRwpmfeY2jjuUN4taQMsULKUVo1K4DvZl+0pgfyoysHxvmvEw==
+  /exec-sh/0.2.2:
+    dependencies:
+      merge: 1.2.1
+    dev: true
+    resolution:
+      integrity: sha512-FIUCJz1RbuS0FKTdaAafAByGS0CPvU3R0MeHxgtl+djzCc//F8HakL8GzmVNZanasTbTAY/3DRFA0KpVqj/eAw==
+  /exec-sh/0.3.4:
+    dev: true
+    resolution:
+      integrity: sha512-sEFIkc61v75sWeOe72qyrqg2Qg0OuLESziUDk/O/z2qgS15y2gWVFrI6f2Qn/qw/0/NCfCEsmNA4zOjkwEZT1A==
   /execa/4.1.0:
     dependencies:
       cross-spawn: 7.0.3
@@ -3689,6 +3701,10 @@ packages:
     dev: true
     resolution:
       integrity: sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w==
+  /merge/1.2.1:
+    dev: true
+    resolution:
+      integrity: sha512-VjFo4P5Whtj4vsLzsYBu5ayHhoHJ0UqNm7ibvShmbmoz7tGi0vXaoJbGdB+GmDMLUdg8DpQXEIeVDAe8MaABvQ==
   /methods/1.1.2:
     dev: true
     engines:
@@ -5545,6 +5561,16 @@ packages:
       '0': node >=0.6.0
     resolution:
       integrity: sha1-OhBcoXBTr1XW4nDB+CiGguGNpAA=
+  /watch/1.0.2:
+    dependencies:
+      exec-sh: 0.2.2
+      minimist: 1.2.5
+    dev: true
+    engines:
+      node: '>=0.1.95'
+    hasBin: true
+    resolution:
+      integrity: sha1-NApxe952Vyb6CqB9ch4BR6VR3ww=
   /webidl-conversions/4.0.2:
     dev: false
     resolution:
@@ -5691,6 +5717,7 @@ specifiers:
   elm-test: ^0.19.1-revision4
   elm-tooling: ^0.6.1
   es-dev-server: ^1.57.8
+  exec-sh: ^0.3.4
   idb-keyval: ^3.2.0
   nodemon: ^2.0.6
   npm-run-all: ^4.1.5
@@ -5698,3 +5725,4 @@ specifiers:
   snowpack: ^2.17.0
   snowpack-plugin-elm: ^0.4.0
   terser: ^5.3.8
+  watch: ^1.0.2

@@ -9,8 +9,9 @@ process.env.SNOWPACK_PUBLIC_CABLE_URL = isProdution
 
 module.exports = {
   installOptions: {
-    dest: 'src/web_modules',
+    dest: 'web_modules',
     clean: true,
+    env: {},
   },
   mount: {
     src: '/',
@@ -18,11 +19,25 @@ module.exports = {
   devOptions: {
     hostname: 'devd.io',
     port: 8000,
+    open: 'none',
+    output: 'stream',
+    hmrErrorOverlay: false,
   },
   buildOptions: {
     clean: true,
-    out: process.env.NODE_ENV === 'production' ? 'dist' : 'build-snow',
+    out: 'dist',
     webModulesUrl: 'web',
     metaDir: 'static',
   },
+  plugins: [
+    [
+      '@snowpack/plugin-run-script',
+      {
+        name: 'elm watch',
+        cmd: 'elm-format src/ --yes',
+        watch: 'npx node watch.js',
+        output: 'stream',
+      },
+    ],
+  ],
 };
