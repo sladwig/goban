@@ -1,4 +1,4 @@
-module Game exposing (Game, decoder, encode, fresh, fromMoves, fromSgf, gameInfoParser, info, infoToSgf, makeMove, toBoard, toSgf, toTurn, undoMove)
+module Game exposing (Game, Sgf, decoder, encode, fresh, fromMoves, fromSgf, gameInfoParser, info, infoToSgf, makeMove, toBoard, toSgf, toString, toTurn, undoMove)
 
 import Board exposing (Board)
 import Debug
@@ -12,6 +12,15 @@ import Player exposing (Player)
 
 type alias Game =
     { infos : List GameInfo, moves : List Move }
+
+
+
+-- type alias Sgf =
+--     String
+
+
+type Sgf
+    = Sgf String
 
 
 fresh : Game
@@ -40,7 +49,7 @@ withInfos g i =
     { g | infos = i }
 
 
-toSgf : Game -> String
+toSgf : Game -> Sgf
 toSgf g =
     let
         attrs =
@@ -56,7 +65,12 @@ toSgf g =
             else
                 ";" ++ moveList
     in
-    "(;" ++ attrs ++ madeMoves ++ ")"
+    Sgf ("(;" ++ attrs ++ madeMoves ++ ")")
+
+
+toString : Sgf -> String
+toString (Sgf sgf) =
+    sgf
 
 
 fromParsing : List GameInfo -> List Move -> Game

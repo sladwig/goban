@@ -9,6 +9,7 @@ import Browser.Dom as Bdom exposing (Viewport)
 import Browser.Events as BrowserE
 import Browser.Navigation as Nav
 import Debug
+import Dict exposing (Dict)
 import Element exposing (Element)
 import Element.Background as Background
 import Element.Border as Border
@@ -18,7 +19,7 @@ import File exposing (File)
 import File.Download as Download
 import File.Select as Select
 import Flip exposing (flip)
-import Game exposing (Game)
+import Game exposing (Game, Sgf)
 import Html exposing (Html)
 import Html.Attributes as HtmlA
 import Html.Events as HtmlE
@@ -38,7 +39,7 @@ import Time
 import Url
 
 
-main : Program E.Value Goban Msg
+main : Program E.Value GobanApp Msg
 main =
     Browser.application
         { init = init
@@ -54,38 +55,78 @@ main =
 -- MODEL
 
 
-type alias GobanInfos =
-    { game : Game
-    , table : Maybe Viewport
+type ViewGame
+    = Last
+    | Highlight Int
+
+
+type alias PlayingGameModel =
+    { table : Viewport
     , message : Maybe String
-    , highlighted : Int
+    , highlighted : ViewGame
     , navKey : Nav.Key
+    , currentGame : GameId
+    , games : Dict String Game
     }
 
 
-type alias Goban =
-    GobanInfos
-
-
-blank : Nav.Key -> GobanInfos
-blank key =
-    { game = Game.fresh
-    , table = Nothing
-    , message = Nothing
-    , highlighted = 0
-    , navKey = key
+type alias ViewingGameModel =
+    { table : Viewport
+    , message : Maybe String
+    , navKey : Nav.Key
+    , games : Dict String Game
     }
 
 
-init : E.Value -> Url.Url -> Nav.Key -> ( Goban, Cmd Msg )
-init flags url key =
+type GobanApp
+    = Initializing Nav.Key
+    | PlayingGame PlayingGameModel
+    | ViewingGames ViewingGameModel
+
+
+type alias IdGame =
+    ( GameId, Game )
+
+
+type alias PossibleIdSgf =
+    ( String, String )
+
+
+type alias IdSgf =
+    ( GameId, Sgf )
+
+
+viewingGames : Nav.Key -> Viewport -> GobanApp
+viewingGames key vp =
+    ViewingGames
+        { table = vp
+        , message = Nothing
+        , navKey = key
+        , games = Dict.empty
+        }
+
+
+playingGame : ViewingGameModel -> IdGame -> GobanApp
+playingGame v ( id, game ) =
     let
-        newRoom =
-            blank key
+        updatedGames =
+            Dict.insert (gameIdAsString id) game v.games
     in
-    ( newRoom
+    PlayingGame
+        { table = v.table
+        , message = v.message
+        , navKey = v.navKey
+        , highlighted = Last
+        , currentGame = id
+        , games = updatedGames
+        }
+
+
+init : E.Value -> Url.Url -> Nav.Key -> ( GobanApp, Cmd Msg )
+init flags url key =
+    ( Initializing key
     , Cmd.batch
-        [ Task.attempt GotTable (Bdom.getViewportOf "table")
+        [ Task.perform UpdateViewport Bdom.getViewport
         ]
     )
 
@@ -119,51 +160,82 @@ tableColor =
     Element.rgb255 164 143 122
 
 
-view : Goban -> Browser.Document Msg
-view goban =
-    { title = "Goban"
-    , body =
-        [ Element.layout
-            [ Element.width Element.fill
-            , Element.height Element.fill
-            , Element.centerX
-            , Element.centerY
-            , Background.color (Element.rgb255 164 143 122)
-            ]
-            (viewBoardAndPanel goban)
-        ]
-    }
+view : GobanApp -> Browser.Document Msg
+view app =
+    case app of
+        Initializing _ ->
+            { title = "Initializing"
+            , body =
+                [ Element.layout
+                    [ Element.width Element.fill
+                    , Element.height Element.fill
+                    , Element.centerX
+                    , Element.centerY
+                    ]
+                    (Element.text "Hola! Initializing")
+                ]
+            }
+
+        ViewingGames _ ->
+            { title = "Viewing"
+            , body =
+                [ Element.layout
+                    [ Element.width Element.fill
+                    , Element.height Element.fill
+                    , Element.centerX
+                    , Element.centerY
+                    ]
+                    (Element.text "Viewing")
+                ]
+            }
+
+        PlayingGame game ->
+            { title = "Goban"
+            , body =
+                [ Element.layout
+                    [ Element.width Element.fill
+                    , Element.height Element.fill
+                    , Element.centerX
+                    , Element.centerY
+                    ]
+                    (viewBoardAndPanel game)
+                ]
+            }
 
 
-viewBoardAndPanel : GobanInfos -> Element Msg
+viewBoardAndPanel : PlayingGameModel -> Element Msg
 viewBoardAndPanel model =
+    let
+        ( id, game ) =
+            idGameOf model
+    in
     Element.row
         [ Element.width Element.fill
         , Element.height Element.fill
         , Element.centerX
         , Element.centerY
         ]
-        [ viewBoard model.table model.highlighted model.game.moves
-        , viewPanel model.message model.highlighted model.game.moves
+        [ viewBoard model.table model.highlighted game.moves
+        , viewPanel model.message model.highlighted ( id, game )
         ]
 
 
-viewBoard : Maybe Viewport -> Int -> List Move -> Element Msg
-viewBoard table highlighted allMoves =
+viewBoard : Viewport -> ViewGame -> List Move -> Element Msg
+viewBoard t highlighted allMoves =
     let
         theSize =
             str (20 * fieldSize)
 
         svgSize =
-            case table of
-                Nothing ->
-                    0
-
-                Just t ->
-                    -32 + Basics.min t.viewport.height t.viewport.width
+            -32 + Basics.min t.viewport.height t.viewport.width
 
         moves =
-            List.take (highlighted + 1) allMoves
+            case highlighted of
+                Last ->
+                    allMoves
+
+                Highlight moveNumber ->
+                    List.take moveNumber allMoves
     in
     Element.el
         [ Element.width (Element.fillPortion 3)
@@ -171,13 +243,10 @@ viewBoard table highlighted allMoves =
         , Element.centerX
         , Element.centerY
         , Element.padding 15
-        , Element.htmlAttribute (HtmlA.id "table")
         ]
         (Element.el
             [ Element.centerX
             , Element.centerY
-
-            -- , Element.height
             , Border.width 2
             , Border.color <| Element.rgb255 45 45 45
             ]
@@ -186,9 +255,10 @@ viewBoard table highlighted allMoves =
                     [ SvgA.version "1.1"
                     , SvgA.height (strf svgSize)
                     , SvgA.width (strf svgSize)
-                    , SvgA.viewBox ("0 0 " ++ theSize ++ " " ++ theSize)
+                    , SvgA.viewBox <| "0 0 " ++ theSize ++ " " ++ theSize
                     ]
-                    [ svgRows
+                    [ rectangle
+                    , svgRows
                     , svgCols
                     , dot 4 4
                     , dot 4 10
@@ -199,17 +269,24 @@ viewBoard table highlighted allMoves =
                     , dot 16 4
                     , dot 16 10
                     , dot 16 16
-                    , yunziis (Board.movesOf (Game.toBoard moves))
+                    , yunziis <| Board.movesOf <| Game.toBoard moves
                     , clickAreas
-                    , lastMove (ListExtra.last moves)
+                    , lastMove <| ListExtra.last moves
                     ]
                 )
             )
         )
 
 
-viewPanel : Maybe String -> Int -> List Move -> Element Msg
-viewPanel message highlighted moves =
+viewPanel : Maybe String -> ViewGame -> IdGame -> Element Msg
+viewPanel message highlighted idGame =
+    let
+        game =
+            Tuple.second idGame
+
+        moves =
+            game.moves
+    in
     Element.column
         [ Element.spacing 15
         , Element.centerX
@@ -222,7 +299,7 @@ viewPanel message highlighted moves =
         , viewPlayers (Game.toTurn moves)
         , viewMoves highlighted moves
         , viewMessage message
-        , viewButtons
+        , viewButtons idGame
         ]
 
 
@@ -313,7 +390,7 @@ blackColor alpha =
     Element.fromRgb { alpha = alpha, blue = 0, green = 0, red = 0 }
 
 
-viewMoves : Int -> List Move -> Element Msg
+viewMoves : ViewGame -> List Move -> Element Msg
 viewMoves highlighted moves =
     let
         size =
@@ -326,12 +403,12 @@ viewMoves highlighted moves =
         [ Element.spacing 3
         , Element.centerX
         , Element.width (Element.px ((size + spacing) * 10))
-        , Element.htmlAttribute (HtmlE.onMouseLeave (Highlight (List.length moves)))
+        , Element.htmlAttribute (HtmlE.onMouseLeave (Highlighting Last))
         ]
         (List.indexedMap (viewMove size highlighted) moves)
 
 
-viewMove : Int -> Int -> Int -> Move -> Element Msg
+viewMove : Int -> ViewGame -> Int -> Move -> Element Msg
 viewMove s highlighted index move =
     let
         size =
@@ -345,16 +422,24 @@ viewMove s highlighted index move =
                 Player.Black ->
                     blackColor
 
-        alpha =
-            case index <= highlighted of
-                True ->
-                    1
+        moveNumber =
+            index + 1
 
-                False ->
-                    0.3
+        alpha =
+            case highlighted of
+                Last ->
+                    12
+
+                Highlight num ->
+                    case moveNumber <= num of
+                        True ->
+                            1
+
+                        False ->
+                            0.3
     in
     Element.row
-        [ Element.htmlAttribute (HtmlE.onMouseEnter (Highlight index))
+        [ Element.htmlAttribute (HtmlE.onMouseEnter (Highlighting (Highlight moveNumber)))
         ]
         [ Element.el
             [ Background.color (bgColor alpha)
@@ -396,17 +481,17 @@ viewGameButtons =
         ]
 
 
-viewButtons : Element Msg
-viewButtons =
+viewButtons : IdGame -> Element Msg
+viewButtons ( id, game ) =
     Element.row
         [ Element.alignBottom
         , Element.spacing 5
         , Element.paddingEach { top = 25, right = 0, left = 0, bottom = 0 }
         , Element.width Element.fill
         ]
-        [ viewButton (viewIcon Icons.downloadOutlined) DownloadGame "Download Game"
+        [ viewButton (viewIcon Icons.downloadOutlined) (DownloadGame (Game.toSgf game)) "Download Game"
         , viewButton (viewIcon Icons.uploadOutlined) SelectGameFile "Upload Game"
-        , viewButton (viewIcon Icons.borderlessTableOutlined) ConfirmReset "Reset Game"
+        , viewButton (viewIcon Icons.borderlessTableOutlined) (ConfirmReset id) "Reset Game"
         ]
 
 
@@ -456,11 +541,7 @@ yunzi move =
             Move.positionOf move
     in
     Svg.circle
-        (List.append (onPosition pos)
-            [ SvgA.r "5"
-            , SvgA.fill color
-            ]
-        )
+        (onPosition pos ++ [ SvgA.r "5", SvgA.fill color ])
         []
 
 
@@ -477,24 +558,24 @@ hoplas row =
 clicky : Position -> Svg Msg
 clicky xy =
     Svg.circle
-        (List.append (onPosition xy)
-            [ SvgA.r "5"
-            , SvgA.opacity "0.5"
-            , SvgA.fill "transparent"
-            , SvgE.onClick (MoveAt xy)
-            ]
+        ([ SvgA.r "5"
+         , SvgA.opacity "0.5"
+         , SvgA.fill "transparent"
+         , SvgE.onClick (MoveAt xy)
+         ]
+            ++ onPosition xy
         )
         []
 
 
 svgRows : Svg Msg
 svgRows =
-    Svg.g [] (List.map rowLine (List.range 1 19))
+    Svg.g [] (List.map rowLine (List.range 2 18))
 
 
 svgCols : Svg Msg
 svgCols =
-    Svg.g [] (List.map colLine (List.range 1 19))
+    Svg.g [] (List.map colLine (List.range 2 18))
 
 
 dot : Int -> Int -> Svg Msg
@@ -541,17 +622,46 @@ colLine idx =
     Svg.line (List.append (colAt idx) [ SvgA.strokeWidth "0.5", SvgA.stroke "#2d2d2d" ]) []
 
 
+rectangle : Svg Msg
+rectangle =
+    let
+        start =
+            str fieldStart
+
+        end =
+            str (fieldSize * 18)
+    in
+    Svg.rect
+        [ SvgA.x start
+        , SvgA.y start
+        , SvgA.width end
+        , SvgA.height end
+        , SvgA.strokeWidth "0.5"
+        , SvgA.stroke "#2d2d2d"
+        , SvgA.fill "none"
+        ]
+        []
+
+
+idGameOf : { a | currentGame : GameId, games : Dict String Game } -> IdGame
+idGameOf goban =
+    ( goban.currentGame, Maybe.withDefault Game.fresh <| Dict.get (gameIdAsString goban.currentGame) goban.games )
+
+
 
 -- PORTS
 
 
-port setStorage : String -> Cmd msg
+port enterRoom : String -> Cmd msg
 
 
-port loadGame : (String -> msg) -> Sub msg
+port updateGame : ( String, String ) -> Cmd msg
 
 
-port confirmReset : () -> Cmd msg
+port loadGame : (( String, String ) -> msg) -> Sub msg
+
+
+port confirmReset : String -> Cmd msg
 
 
 port resetGame : (E.Value -> msg) -> Sub msg
@@ -562,146 +672,214 @@ port resetGame : (E.Value -> msg) -> Sub msg
 
 
 type Msg
-    = MoveAt Position
+    = LinkClicked Browser.UrlRequest
+    | UrlChanged Url.Url
+    | UpdateViewport Viewport
+    | Resize
+    | MoveAt Position
     | TimedMoveAt Position Time.Posix
     | Pass
     | Undo
-    | GotTable (Result Bdom.Error Viewport)
-    | Resize
-    | Load String
-    | Highlight Int
-    | DownloadGame
+    | Load ( String, String )
+    | Highlighting ViewGame
+    | DownloadGame Sgf
     | SelectGameFile
     | GameFileSelected File
     | GameFileUploaded String
-    | ConfirmReset
+    | ConfirmReset GameId
     | ResetGame E.Value
-    | LinkClicked Browser.UrlRequest
-    | UrlChanged Url.Url
 
 
-moveUpdate : Game -> Cmd Msg
-moveUpdate game =
-    setStorage (Game.toSgf game)
+type GameId
+    = GameId String
 
 
-update : Msg -> Goban -> ( Goban, Cmd Msg )
-update msg goban =
+gameIdAsString : GameId -> String
+gameIdAsString (GameId id) =
+    id
+
+
+notify : ( GameId, Game ) -> Cmd Msg
+notify ( id, game ) =
+    updateGame <| ( gameIdAsString <| id, Game.toString <| Game.toSgf game )
+
+
+updatePlayingGame : { a | currentGame : GameId, games : Dict String Game } -> Game -> { a | currentGame : GameId, games : Dict String Game }
+updatePlayingGame p newGame =
     let
-        game =
-            goban.game
-
-        moves =
-            goban.game.moves
+        newGames =
+            Dict.insert (gameIdAsString p.currentGame) newGame p.games
     in
-    case msg of
-        MoveAt coordinate ->
-            ( goban, Task.perform (TimedMoveAt coordinate) Time.now )
+    { p | games = newGames }
 
-        TimedMoveAt coordinate time ->
-            let
-                move =
-                    Move.fromPlayerAndPositionAndTime (Game.toTurn moves) coordinate time
-            in
-            case Board.play move (Game.toBoard moves) of
-                Ok board ->
+
+update : Msg -> GobanApp -> ( GobanApp, Cmd Msg )
+update msg app =
+    case app of
+        Initializing key ->
+            case msg of
+                UpdateViewport vp ->
+                    ( viewingGames key vp, Cmd.batch [ enterRoom "ab0dc465-fd83-4ad9-86d1-04da44a90f4c" ] )
+
+                _ ->
+                    ( app, Cmd.none )
+
+        ViewingGames goban ->
+            case msg of
+                Load ( id, sgf ) ->
                     let
                         newGame =
-                            Game.makeMove game move
+                            case Parser.run Game.fromSgf sgf of
+                                Ok aGame ->
+                                    aGame
+
+                                Err _ ->
+                                    Game.fresh
+
+                        newAppState =
+                            playingGame goban ( GameId id, newGame )
                     in
-                    ( { goban | game = newGame, message = Nothing }, moveUpdate newGame )
+                    ( newAppState, Cmd.none )
 
-                Err reason ->
-                    ( { goban | message = Just (Board.insertionFailureToString reason) }
-                    , Cmd.none
-                    )
+                _ ->
+                    ( app, Cmd.none )
 
-        Pass ->
-            -- TODO
-            ( goban, moveUpdate game )
-
-        Undo ->
+        PlayingGame goban ->
             let
-                newGame =
-                    Game.undoMove game
+                idGame =
+                    idGameOf goban
+
+                game =
+                    Tuple.second idGame
+
+                moves =
+                    game.moves
             in
-            ( { goban | game = newGame }, moveUpdate newGame )
+            case msg of
+                MoveAt coordinate ->
+                    ( PlayingGame goban, Task.perform (TimedMoveAt coordinate) Time.now )
 
-        GotTable vp ->
-            ( { goban | table = Result.toMaybe vp }, Cmd.none )
+                TimedMoveAt coordinate time ->
+                    let
+                        move =
+                            Move.fromPlayerAndPositionAndTime (Game.toTurn moves) coordinate time
+                    in
+                    case Board.play move (Game.toBoard moves) of
+                        Ok board ->
+                            let
+                                newGame =
+                                    Game.makeMove game move
 
-        Resize ->
-            ( goban, Task.attempt GotTable (Bdom.getViewportOf "table") )
+                                newAppState =
+                                    updatePlayingGame goban newGame
+                            in
+                            ( PlayingGame { newAppState | message = Nothing }, notify ( goban.currentGame, newGame ) )
 
-        Load sgfGame ->
-            let
-                newGame =
-                    case Parser.run Game.fromSgf sgfGame of
-                        Ok aGame ->
-                            aGame
+                        Err reason ->
+                            ( PlayingGame { goban | message = Just (Board.insertionFailureToString reason) }
+                            , Cmd.none
+                            )
+
+                Pass ->
+                    -- TODO
+                    ( PlayingGame goban, notify ( goban.currentGame, game ) )
+
+                Undo ->
+                    let
+                        newGame =
+                            Game.undoMove game
+
+                        newGoban =
+                            updatePlayingGame goban newGame
+                    in
+                    ( PlayingGame newGoban, notify ( goban.currentGame, newGame ) )
+
+                Resize ->
+                    ( PlayingGame goban, Task.perform UpdateViewport Bdom.getViewport )
+
+                Load ( id, sgf ) ->
+                    let
+                        newGame =
+                            case Parser.run Game.fromSgf sgf of
+                                Ok aGame ->
+                                    aGame
+
+                                Err _ ->
+                                    game
+
+                        newAppState =
+                            updatePlayingGame goban newGame
+                    in
+                    ( PlayingGame newAppState, Cmd.none )
+
+                Highlighting index ->
+                    ( PlayingGame { goban | highlighted = index }, Cmd.none )
+
+                DownloadGame sgf ->
+                    ( PlayingGame goban, Cmd.batch [ Download.string "game.sgf" "text/sgf" (Game.toString sgf) ] )
+
+                SelectGameFile ->
+                    ( PlayingGame goban, Cmd.batch [ Select.file [ "text/sgf" ] GameFileSelected ] )
+
+                GameFileSelected sgfFile ->
+                    ( PlayingGame goban, Task.perform GameFileUploaded (File.toString sgfFile) )
+
+                GameFileUploaded sgf ->
+                    let
+                        newGame =
+                            case Parser.run Game.fromSgf sgf of
+                                Ok aGame ->
+                                    aGame
+
+                                Err _ ->
+                                    game
+
+                        newAppState =
+                            updatePlayingGame goban newGame
+                    in
+                    -- TODO add new id generation
+                    ( PlayingGame newAppState, notify ( goban.currentGame, newGame ) )
+
+                ConfirmReset (GameId id) ->
+                    ( PlayingGame goban, Cmd.batch [ confirmReset id ] )
+
+                ResetGame encodedBoolean ->
+                    case D.decodeValue D.bool encodedBoolean of
+                        Ok bool ->
+                            case bool of
+                                True ->
+                                    let
+                                        newAppState =
+                                            updatePlayingGame goban Game.fresh
+                                    in
+                                    ( PlayingGame newAppState, notify ( goban.currentGame, Game.fresh ) )
+
+                                _ ->
+                                    ( PlayingGame goban, Cmd.none )
 
                         Err _ ->
-                            game
-            in
-            ( { goban | game = newGame, highlighted = List.length newGame.moves }, Cmd.none )
+                            ( PlayingGame goban, Cmd.none )
 
-        Highlight index ->
-            ( { goban | highlighted = index }, Cmd.none )
+                LinkClicked urlRequest ->
+                    case urlRequest of
+                        Browser.Internal url ->
+                            ( PlayingGame goban, Nav.pushUrl goban.navKey (Url.toString url) )
 
-        DownloadGame ->
-            ( goban, Cmd.batch [ Download.string "game.sgf" "text/sgf" (Game.toSgf goban.game) ] )
+                        Browser.External href ->
+                            ( PlayingGame goban, Nav.load href )
 
-        SelectGameFile ->
-            ( goban, Cmd.batch [ Select.file [ "text/sgf" ] GameFileSelected ] )
+                UrlChanged _ ->
+                    ( PlayingGame goban, Cmd.none )
 
-        GameFileSelected sgfFile ->
-            ( goban, Task.perform GameFileUploaded (File.toString sgfFile) )
-
-        GameFileUploaded sgf ->
-            let
-                newGame =
-                    case Parser.run Game.fromSgf sgf of
-                        Ok aGame ->
-                            aGame
-
-                        Err _ ->
-                            game
-            in
-            ( { goban | game = newGame, highlighted = List.length newGame.moves }, moveUpdate newGame )
-
-        ConfirmReset ->
-            ( goban, Cmd.batch [ confirmReset () ] )
-
-        ResetGame encodedBoolean ->
-            case D.decodeValue D.bool encodedBoolean of
-                Ok bool ->
-                    case bool of
-                        True ->
-                            ( { goban | game = Game.fresh, highlighted = 0 }, moveUpdate Game.fresh )
-
-                        _ ->
-                            ( goban, Cmd.none )
-
-                Err _ ->
-                    ( goban, Cmd.none )
-
-        LinkClicked urlRequest ->
-            case urlRequest of
-                Browser.Internal url ->
-                    ( goban, Nav.pushUrl goban.navKey (Url.toString url) )
-
-                Browser.External href ->
-                    ( goban, Nav.load href )
-
-        UrlChanged _ ->
-            ( goban, Cmd.none )
+                UpdateViewport _ ->
+                    ( PlayingGame goban, Cmd.none )
 
 
 
 -- SUBSCRIPTIONS
 
 
-subscriptions : Goban -> Sub Msg
+subscriptions : GobanApp -> Sub Msg
 subscriptions _ =
     Sub.batch
         [ BrowserE.onResize (\_ _ -> Resize)
