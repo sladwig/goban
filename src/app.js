@@ -53,7 +53,7 @@ var BroadCast = {
 
     if (!BroadCast.isConnected(game)) return BroadCast.retryLater();
 
-    if (BroadCast.forGame(game).send(sgf)) BroadCast.notify(); // next
+    if (BroadCast.forGame(game).send({ sgf })) return BroadCast.notify(); // next
 
     BroadCast.retryStack.unshift([game, sgf]);
     BroadCast.retryLater();
@@ -64,9 +64,9 @@ var BroadCast = {
     BroadCast.channels.set(
       game,
       App.cable.subscriptions.create(
-        { channel: 'GameChannel', id: game },
-        BroadCast.onData(game, ({ sgf }) => {
-          App.ports.updateRoom.send(game, sgf);
+        { channel: 'GameChannel', game },
+          BroadCast.onData(game, ({ sgf }) => {
+          App.ports.loadGame.send([game, sgf]);
           Games.set(game, sgf);
         }),
       ),
@@ -79,8 +79,8 @@ var BroadCast = {
     }
     return BroadCast.channels.get(game);
   },
-  to: (id, sgf) => {
-    BroadCast.retryStack.push([id, sgf]);
+  to: (game, sgf) => {
+    BroadCast.retryStack.push([game, sgf]);
     BroadCast.notify();
   },
 };
@@ -97,7 +97,6 @@ const Games = {
 
   saveVersion: (game, sgf) => {
     get(Games.archiveFor(game)).then((versions = []) => {
-      console.log('saving', versions, game, sgf);
       if (Games.keepVersions < versions.push(sgf)) versions.shift();
 
       set(Games.archiveFor(game), versions);
