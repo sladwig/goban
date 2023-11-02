@@ -1,8 +1,10 @@
 module Board exposing
     ( Board
+    , BoardSized(..)
     , InsertionFailure(..)
     , InsertionResult
     , applyPlay
+    , bs2Int
     , capture
     , fromSizeStonesCaptures
     , get
@@ -26,6 +28,15 @@ import Player exposing (Player)
 import Position exposing (Position)
 import Result exposing (andThen)
 import Set exposing (Set)
+
+
+type BoardSized
+    = BoardSized Int
+
+
+bs2Int : BoardSized -> Int
+bs2Int (BoardSized size) =
+    size
 
 
 type alias InsertionResult =
@@ -241,7 +252,7 @@ put move (Board board) =
 
 
 
--- adds captures for a player
+-- adds captures for a playermm
 
 
 captureAdd : Position -> Player -> Captures -> Captures
