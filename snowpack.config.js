@@ -7,7 +7,7 @@ process.env.SNOWPACK_PUBLIC_CABLE_URL = isProdution
   ? 'wss://shoutan.herokuapp.com/cable/'
   : 'ws://localhost:3000/cable/';
 
-module.exports = {
+export default {
   installOptions: {
     dest: 'web_modules',
     clean: true,
