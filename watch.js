@@ -1,6 +1,7 @@
-var watch = require('watch');
-var execshell = require('exec-sh').promise;
+import watch from 'watch'
+// var execshell = require('exec-sh').promise;
 
+import 'zx/globals';
 const ignoredFiles = new Set();
 
 const ignore = (f) => ignoredFiles.add(f);
@@ -8,9 +9,9 @@ const isIgnored = (f) => ignoredFiles.has(f);
 const unignore = (f) => ignoredFiles.delete(f);
 
 const cmd = async (...args) => {
-  let command = args.join(' ');
+  // let command = args.join(' ');
   try {
-    await execshell(command);
+    await `${args}`
   } catch (e) {
     console.error('Error executing:', command);
   }
@@ -32,7 +33,7 @@ watch.createMonitor(
       ignore(f);
       await cmd('elm-format', f, '--yes');
       await cmd('elm', 'make', '--output=src/elm.js', 'src/Main.elm');
-      await cmd('./elm-module.sh');
+      await cmd('./elm-module.sh', 'src/Main.elm');
     });
   },
 );
