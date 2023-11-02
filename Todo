@@ -6,28 +6,57 @@ Todo
     - count captures
     - count points
     - commentable
-    - use indexDB instead of localstorage
     - use more compact string representation
     - make it typesafe, that there is always black before/after white?
     - player can switch colors
     - edit mode
         - be able to add moves
+    - add comments to games
+    - exit edit mode
+    - readd edit mode
+    - use phantom types -> sgf string, move index, PosXY?
+    - clack sound with velocity
+    - understand alternatives
+    - spielbrett drehen
+    - give error message when file can't be read
+    - maybe use rails to serve frontend
+    - scroll da yunzis
+    - make portrait look also nice
+    - rotate board
+    - load previous version
+    - load known rooms
 
 * next
     - passing moves
-    - add comments to games
     - show caputres of each player
-    - add load game functionality
-    - add reset/start new functionality
-    - mark last move
-    - exit edit mode
+    - use html 100 for element
 
-
+    - turn board
+    - change  sizes
+    - maybe bigger buttons
+    - touch and zoom or similar
+    - hover mousedown -> view over
 * progress
-    - use sgf for exporting/importing
+    - allow multiple rooms
+
+
 
 
 * done
+    - add rectangle
+    - use indexDB instead of localstorage
+    - nicer message box
+    - use sgf for indexDB
+    - use sgf for sockets
+    - add load game functionality
+    - add reset/start new functionality
+    - reconnect on connection lost/error
+    - use sgf for exporting/importing
+    - save sgf file
+    - load sgf file
+    - mark last move
+    - reverse move list
+    - game refactor
     - edit mode
         - be able to move a stone 
     - save gamestate to localstorage
