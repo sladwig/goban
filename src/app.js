@@ -17,7 +17,8 @@ App.ports.updateGame.subscribe(([game, sgf]) => {
 });
 
 App.ports.confirmReset.subscribe((game) => {
-  App.ports.resetGame.send(game, window.confirm('Reset game?'));
+  const reseting  = window.confirm('Reset game?')
+  App.ports.resetGame.send([game, true]);
 });
 
 App.cable = ActionCable.createConsumer(window.cableUrl);
