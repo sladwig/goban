@@ -4,7 +4,7 @@ set -e
 
 js="src/elm.js"
 
-elm make --optimize --output=$js $@
+elm make --output=$js $@
 
 # change the cmpiled elm file to not immediately call the compiled function
 perl -i -pe 's/\(function\(scope/function init\(scope/g' $js
