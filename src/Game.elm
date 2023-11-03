@@ -31,7 +31,6 @@ fresh boardSize =
         , info "FF" "4"
         , info "CA" "UTF-8"
         , info "KM" "0"
-        , info "SZ" (String.fromInt (Board.bs2Int (Debug.log "bbbbs" boardSize)))
         , info "DT" "_the time_"
         , info "BP" "_player black_"
         , info "BR" "_black rank_"
@@ -45,6 +44,11 @@ fresh boardSize =
     , bs = boardSize
     }
 
+allInfos : Game -> GameInfos
+allInfos g =
+  (List.filter (\i -> i.attribute /= "SZ") <|
+    g.infos) 
+    ++ [ info "SZ" (String.fromInt (Board.bs2Int g.bs)) ]
 
 withInfos : Game -> GameInfos -> Game
 withInfos g i =
@@ -55,7 +59,7 @@ toSgf : Game -> Sgf
 toSgf g =
     let
         attrs =
-            String.concat (List.map infoToSgf g.infos)
+            String.concat (List.map infoToSgf (allInfos g))
 
         moveList =
             String.join ";" (List.map Move.toSgf g.moves)
@@ -189,12 +193,6 @@ movesParserHelper gameMoves =
 infoToSgf : GameInfo -> String
 infoToSgf a =
     a.attribute ++ "[" ++ a.value ++ "]"
-
-
-
--- fromMoves : List Move -> Game
--- fromMoves moves =
---     { fresh | moves = moves }
 
 
 toBoard : List Move -> BoardSized -> Board
