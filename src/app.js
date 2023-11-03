@@ -1,6 +1,14 @@
 import { get, set } from 'idb-keyval';
 import ActionCable from 'actioncable';
-import Elm from './elm.js';
+import { Elm } from './Main.elm';
+
+if (process.env.NODE_ENV === "development") {
+  const ElmDebugTransform = await import("elm-debug-transformer")
+
+  ElmDebugTransform.register({
+    simple_mode: true
+  })
+}
 
 var App = Elm.Main.init({ flags: { moves: [] } });
 

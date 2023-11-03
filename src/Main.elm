@@ -85,7 +85,7 @@ type alias PlayingGameModel =
     , currentGame : GameId
     , games : Dict String Game
 
-    -- , boardSize : BoardSized
+    , boardSize : BoardSized
     , showMenu : MenuState
     , tableTurn : Int
     , zoomState : ZoomState
@@ -145,7 +145,7 @@ playingGame v ( id, game ) =
         , currentGame = id
         , games = updatedGames
 
-        -- , boardSize = BoardSized 19
+        , boardSize = BoardSized 19
         , tableTurn = 0
         , showMenu =
             if gameHasStarted then
@@ -228,7 +228,6 @@ handiCapDots fieldSize boardSize =
         _ ->
             []
 
-
 view : GobanApp -> Browser.Document Msg
 view app =
     case app of
@@ -258,10 +257,11 @@ view app =
                 ]
             }
 
-        PlayingGame game ->
+        PlayingGame gobanapp ->
             let
-                ( id, gameGame ) =
-                    idGameOf game
+              id = gobanapp.currentGame
+              game = currentGameOf gobanapp
+
             in
             { title = "Goban"
             , body =
@@ -270,10 +270,10 @@ view app =
                     , El.height El.fill
                     , El.centerX
                     , El.centerY
-                    , El.inFront (viewLeftPanel game.tableTurn game.boardSize game.message game.highlighted ( id, gameGame ) game.showMenu)
-                    , El.inFront (viewPanel game.tableTurn game.boardSize game.message game.highlighted ( id, gameGame ) game.showMenu)
+                    , El.inFront (viewLeftPanel gobanapp.tableTurn game.bs gobanapp.message gobanapp.highlighted ( id, game ) gobanapp.showMenu)
+                    , El.inFront (viewPanel gobanapp.tableTurn game.bs gobanapp.message gobanapp.highlighted ( id, game ) gobanapp.showMenu)
                     ]
-                    (viewBoardAndPanel game)
+                    (viewBoardAndPanel gobanapp)
                 ]
             }
 
@@ -281,8 +281,9 @@ view app =
 viewBoardAndPanel : PlayingGameModel -> Element Msg
 viewBoardAndPanel m =
     let
-        ( id, game ) =
-            idGameOf m
+      game : Game
+      game =
+            currentGameOf m
     in
     El.row
         [ El.width El.fill
@@ -292,7 +293,7 @@ viewBoardAndPanel m =
         , El.htmlAttribute (HtmlA.style "overflow" "hidden")
         , htmlAttribute (HtmlE.onDoubleClick ZoomInOut)
         ]
-        [ viewBoard m.zoomState m.tableTurn m.table m.highlighted game.moves m.boardSize
+        [ viewBoard m.zoomState m.tableTurn m.table m.highlighted game.moves game.bs
 
         -- , viewPanel m.tableTurn m.boardSize m.message m.highlighted ( id, game ) m.showMenu
         ]
@@ -1111,9 +1112,9 @@ rectangle fieldSize boardSize =
         []
 
 
-idGameOf : { a | currentGame : GameId, games : Dict String Game } -> IdGame
-idGameOf goban =
-    ( goban.currentGame, Maybe.withDefault (Game.fresh (BoardSized 19)) <| Dict.get (gameIdAsString goban.currentGame) goban.games )
+currentGameOf : { a | currentGame : GameId, games : Dict String Game, boardSize : BoardSized } -> Game
+currentGameOf goban =
+    Maybe.withDefault (Game.fresh goban.boardSize) <| Dict.get (gameIdAsString goban.currentGame) goban.games
 
 
 
@@ -1245,17 +1246,14 @@ update msg app =
 
         PlayingGame goban ->
             let
-                idGame =
-                    idGameOf goban
-
-                game =
-                    Tuple.second idGame
+                game  =
+                    currentGameOf goban
 
                 moves =
                     game.moves
 
                 boardSize =
-                    goban.boardSize
+                    game.bs
 
                 l =
                     Debug.log "boardSize" boardSize
@@ -1364,8 +1362,10 @@ update msg app =
                     -- Ok shouldReset ->
                     if shouldReset then
                         let
+                            currentgame = currentGameOf goban
+
                             newGame =
-                                Game.fresh goban.boardSize
+                                Game.fresh currentgame.bs
 
                             newAppState =
                                 updatePlayingGame goban newGame
@@ -1405,8 +1405,10 @@ update msg app =
 
                 ChangeBoardSize ->
                     let
+                        cgame =
+                            currentGameOf goban
                         nextBoardSize =
-                            case goban.boardSize of
+                            case cgame.bs of
                                 BoardSized 9 ->
                                     BoardSized 13
 
@@ -1418,8 +1420,12 @@ update msg app =
 
                                 _ ->
                                     BoardSized 19
+
+                        newGame = { cgame | bs = nextBoardSize }
+                        newAppState =
+                                updatePlayingGame goban newGame
                     in
-                    ( PlayingGame { goban | boardSize = nextBoardSize }, Cmd.none )
+                    ( PlayingGame { newAppState | boardSize = nextBoardSize }, Cmd.none )
 
                 ShowMenu ->
                     ( PlayingGame { goban | showMenu = nextMenuState (0 < List.length moves) goban.showMenu }, Cmd.none )
